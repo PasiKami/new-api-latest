@@ -342,7 +342,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelN
 			}
 		}
 		// 获取用户余额
-		userQuota, err := CacheGetUserQuota(relayInfo.UserId)
+		userQuota, err := model.CacheGetUserQuota(relayInfo.UserId)
 		if err != nil {
 			common.LogError(ctx, "error getting user quota: "+err.Error())
 			err := model.CacheUpdateUserQuota(relayInfo.UserId)

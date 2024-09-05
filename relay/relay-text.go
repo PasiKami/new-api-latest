@@ -349,9 +349,6 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelN
 				common.LogError(ctx, "error update user quota cache: "+err.Error())
 			}
 		}
-		if err != nil {
-			common.LogError(ctx, "error update user quota cache: "+err.Error())
-		}
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}

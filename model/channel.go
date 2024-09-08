@@ -288,11 +288,11 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			common.SysError("failed to update channel status: " + err.Error())
 		}
 	}
-
+	common.SysLog("Starting cache update 2 for channel ID: " + fmt.Sprintf("%d", id))
 	// 更新缓存
 	if common.RedisEnabled {
 		go func() {
-			common.SysLog("Starting cache update for channel ID: " + fmt.Sprintf("%d", id))
+			common.SysLog("Starting cache update 2 for channel ID: " + fmt.Sprintf("%d", id))
 			channel, err := GetChannelById(id, true)
 			if err != nil {
 				common.SysError("failed to get channel for cache update: " + err.Error())

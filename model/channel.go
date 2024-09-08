@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"one-api/common"
 	"strings"
 
@@ -287,13 +286,10 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			common.SysError("failed to update channel status: " + err.Error())
 		}
 	}
-	common.SysLog("Starting cache update 1 for channel ID: " + fmt.Sprintf("%d", id))
 	// 更新缓存
 	if common.MemoryCacheEnabled {
-		go func() {
-			InitChannelCache()
-			common.SysLog("Successfully reinitialized channel cache from database")
-		}()
+		InitChannelCache()
+		common.SysLog("Successfully reinitialized channel cache from database")
 	}
 }
 

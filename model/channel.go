@@ -288,7 +288,7 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			common.SysError("failed to update channel status: " + err.Error())
 		}
 	}
-	common.SysLog("Starting cache update 2 for channel ID: " + fmt.Sprintf("%d", id))
+	common.SysLog("Starting cache update 1 for channel ID: " + fmt.Sprintf("%d", id))
 	// 更新缓存
 	if common.RedisEnabled {
 		go func() {
@@ -311,7 +311,7 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			if err != nil {
 				common.SysError("Failed to update channel in redis: " + err.Error())
 			} else {
-				common.SysLog("Successfully updated channel in redis for ID: " + fmt.Sprintf("%d", id))
+				common.SysLog("Successfully updated channel in redis for ID: " + fmt.Sprintf("%d", id) + " with content: " + string(channelJSON))
 			}
 		}()
 	}

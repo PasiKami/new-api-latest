@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"one-api/common"
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -290,29 +289,10 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 	}
 	common.SysLog("Starting cache update 1 for channel ID: " + fmt.Sprintf("%d", id))
 	// 更新缓存
-	if common.RedisEnabled {
+	if common.MemoryCacheEnabled {
 		go func() {
-			common.SysLog("Starting cache update 2 for channel ID: " + fmt.Sprintf("%d", id))
-			channel, err := GetChannelById(id, true)
-			if err != nil {
-				common.SysError("failed to get channel for cache update: " + err.Error())
-				return
-			}
-			common.SysLog("Successfully retrieved channel for ID: " + fmt.Sprintf("%d", id))
-
-			channelJSON, err := json.Marshal(channel)
-			if err != nil {
-				common.SysError("failed to marshal channel for cache update: " + err.Error())
-				return
-			}
-			common.SysLog("Successfully marshaled channel to JSON for ID: " + fmt.Sprintf("%d", id))
-
-			err = common.RedisSet(fmt.Sprintf("channel:%d", id), string(channelJSON), time.Duration(UserId2StatusCacheSeconds)*time.Second)
-			if err != nil {
-				common.SysError("Failed to update channel in redis: " + err.Error())
-			} else {
-				common.SysLog("Successfully updated channel in redis for ID: " + fmt.Sprintf("%d", id) + " with content: " + string(channelJSON))
-			}
+			InitChannelCache()
+			common.SysLog("Successfully reinitialized channel cache from database")
 		}()
 	}
 }

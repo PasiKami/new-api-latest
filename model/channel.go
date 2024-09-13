@@ -2,9 +2,10 @@ package model
 
 import (
 	"encoding/json"
-	"gorm.io/gorm"
 	"one-api/common"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 type Channel struct {
@@ -285,7 +286,11 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			common.SysError("failed to update channel status: " + err.Error())
 		}
 	}
-
+	// 更新缓存
+	if common.MemoryCacheEnabled {
+		InitChannelCache()
+		common.SysLog("Successfully reinitialized channel cache from database")
+	}
 }
 
 func UpdateChannelUsedQuota(id int, quota int) {

@@ -209,12 +209,6 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
 	}
-	if simpleResponse.Error.Type != "" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error:      simpleResponse.Error,
-			StatusCode: resp.StatusCode,
-		}, nil
-	}
 	// **新增的逻辑开始**
 	if strings.Contains(model, "o1") {
 		// 打印日志
@@ -271,6 +265,12 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	} else {
 		// 如果模型名称不包含 "o1"，重置 resp.Body
 		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	}
+	if simpleResponse.Error.Type != "" {
+		return &dto.OpenAIErrorWithStatusCode{
+			Error:      simpleResponse.Error,
+			StatusCode: resp.StatusCode,
+		}, nil
 	}
 	// We shouldn't set the header before we parse the response body, because the parse part may fail.
 	// And then we will have to send an error response, but in this case, the header has already been set.

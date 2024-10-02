@@ -217,6 +217,8 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	}
 	// **新增的逻辑开始**
 	if strings.Contains(model, "o1") {
+		// 打印日志
+		common.SysLog("model name contains 'o1', model name: " + model)
 		// 检查是否存在错误，并且错误类型为 "content_filter"
 		if simpleResponse.Error.Code == "content_filter" {
 			// 修改错误信息
@@ -234,6 +236,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 			resp.ContentLength = int64(len(responseBody))
 			resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
 		} else {
+			common.SysLog("model name contains 'o1', delete content_filter_results")
 			// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
 			// 将响应体解析为通用的 map
 			var responseMap map[string]interface{}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"log"
 	"net/http"
@@ -17,6 +16,8 @@ import (
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode {
@@ -72,7 +73,14 @@ func Relay(c *gin.Context) {
 	}
 
 	if openaiErr != nil {
-		if openaiErr.StatusCode == http.StatusTooManyRequests {
+		// 检查错误代码是否为 "content_filter"
+		if openaiErr.Error.Code == "content_filter" {
+			// 修改错误信息和相关字段
+			openaiErr.Error.Message = fmt.Sprintf("当前分组上游负载已饱和，请稍后再试 (request id: %s)", requestId)
+			openaiErr.Error.Type = "new_api_error"
+			openaiErr.Error.Param = ""
+			openaiErr.Error.Code = nil
+		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)

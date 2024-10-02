@@ -211,58 +211,38 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	}
 	// **新增的逻辑开始**
 	if strings.Contains(model, "o1") {
-		// 打印日志
-		common.SysLog("model name contains 'o1', model name: " + model)
-		// 检查是否存在错误，并且错误类型为 "content_filter"
-		if simpleResponse.Error.Code == "content_filter" {
-			common.SysLog("model name contains 'o1', error code is 'content_filter'")
-			// 修改错误信息
-			simpleResponse.Error.Message = "当前分组上游负载已饱和，请稍后再试"
-			simpleResponse.Error.Type = "new_api_error"
-			simpleResponse.Error.Param = ""
-			simpleResponse.Error.Code = nil // 将 Code 设置为 nil
-			// 重新序列化修改后的错误响应
-			responseBody, err = json.Marshal(simpleResponse)
-			if err != nil {
-				return service.OpenAIErrorWrapper(err, "marshal_modified_error_response_failed", http.StatusInternalServerError), nil
-			}
-			// 重置 resp.Body，并更新 Content-Length 头
-			resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-			resp.ContentLength = int64(len(responseBody))
-			resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
-		} else {
-			common.SysLog("model name contains 'o1', delete content_filter_results")
-			// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
-			// 将响应体解析为通用的 map
-			var responseMap map[string]interface{}
-			err = json.Unmarshal(responseBody, &responseMap)
-			if err != nil {
-				return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
-			}
+		common.SysLog("model name contains 'o1', delete content_filter_results")
+		// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
+		// 将响应体解析为通用的 map
+		var responseMap map[string]interface{}
+		err = json.Unmarshal(responseBody, &responseMap)
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
+		}
 
-			// 删除 choices 中的 content_filter_results
-			if choices, ok := responseMap["choices"].([]interface{}); ok {
-				for _, choice := range choices {
-					if choiceMap, ok := choice.(map[string]interface{}); ok {
-						delete(choiceMap, "content_filter_results")
-					}
+		// 删除 choices 中的 content_filter_results
+		if choices, ok := responseMap["choices"].([]interface{}); ok {
+			for _, choice := range choices {
+				if choiceMap, ok := choice.(map[string]interface{}); ok {
+					delete(choiceMap, "content_filter_results")
 				}
 			}
-
-			// 删除顶层的 prompt_filter_results
-			delete(responseMap, "prompt_filter_results")
-
-			// 将修改后的响应重新序列化为 JSON
-			responseBody, err = json.Marshal(responseMap)
-			if err != nil {
-				return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
-			}
-
-			// 重置 resp.Body，并更新 Content-Length 头
-			resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-			resp.ContentLength = int64(len(responseBody))
-			resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
 		}
+
+		// 删除顶层的 prompt_filter_results
+		delete(responseMap, "prompt_filter_results")
+
+		// 将修改后的响应重新序列化为 JSON
+		responseBody, err = json.Marshal(responseMap)
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
+		}
+
+		// 重置 resp.Body，并更新 Content-Length 头
+		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+		resp.ContentLength = int64(len(responseBody))
+		resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
+
 	} else {
 		// 如果模型名称不包含 "o1"，重置 resp.Body
 		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))

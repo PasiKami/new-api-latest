@@ -215,6 +215,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		common.SysLog("model name contains 'o1', model name: " + model)
 		// 检查是否存在错误，并且错误类型为 "content_filter"
 		if simpleResponse.Error.Code == "content_filter" {
+			common.SysLog("model name contains 'o1', error code is 'content_filter'")
 			// 修改错误信息
 			simpleResponse.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 			simpleResponse.Error.Type = "new_api_error"

@@ -76,7 +76,7 @@ func Relay(c *gin.Context) {
 		// 检查错误代码是否为 "content_filter"
 		if openaiErr.Error.Code == "content_filter" {
 			// 修改错误信息和相关字段
-			openaiErr.Error.Message = fmt.Sprintf("当前分组上游负载已饱和，请稍后再试 (request id: %s)", requestId)
+			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 			openaiErr.Error.Type = "new_api_error"
 			openaiErr.Error.Param = ""
 			openaiErr.Error.Code = nil

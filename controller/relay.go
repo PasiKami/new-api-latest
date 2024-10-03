@@ -125,6 +125,7 @@ func Relay(c *gin.Context) {
 			openaiErr.Error.Type = "new_api_error"
 			openaiErr.Error.Param = ""
 			openaiErr.Error.Code = nil
+			openaiErr.StatusCode = http.StatusTooManyRequests
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}

@@ -277,6 +277,19 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 			CompletionTokens: completionTokens,
 			TotalTokens:      promptTokens + completionTokens,
 		}
+		// **新增的逻辑：检查 CompletionTokens 是否为 0**
+		if completionTokens == 0 {
+			errMsg := "CompletionTokens is still zero after calculation."
+			return &dto.OpenAIErrorWithStatusCode{
+				Error: dto.OpenAIError{
+					Message: errMsg,
+					Type:    "rate_limit_exceeded",
+					Param:   "",
+					Code:    "",
+				},
+				StatusCode: http.StatusTooManyRequests, // 429 状态码
+			}, nil
+		}
 	}
 	return nil, &simpleResponse.Usage
 }

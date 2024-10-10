@@ -15,7 +15,7 @@ import {
   IconKey,
   IconNoteMoneyStroked,
   IconPriceTag,
-  IconUser
+  IconUser,
 } from '@douyinfe/semi-icons';
 import { Avatar, Dropdown, Layout, Nav, Switch } from '@douyinfe/semi-ui';
 import { stringToColor } from '../helpers/render';
@@ -128,17 +128,22 @@ const HeaderBar = () => {
             selectedKeys={[]}
             // items={headerButtons}
             onSelect={(key) => {}}
-            header={isMobile()?{
-              logo: (
-                <img src={logo} alt='logo' style={{ marginRight: '0.75em' }} />
-              ),
-            }:{
-              logo: (
-                <img src={logo} alt='logo' />
-              ),
-              text: systemName,
-
-            }}
+            header={
+              isMobile()
+                ? {
+                    logo: (
+                      <img
+                        src={logo}
+                        alt='logo'
+                        style={{ marginRight: '0.75em' }}
+                      />
+                    ),
+                  }
+                : {
+                    logo: <img src={logo} alt='logo' />,
+                    text: systemName,
+                  }
+            }
             items={buttons}
             footer={
               <>
@@ -159,7 +164,7 @@ const HeaderBar = () => {
                 )}
                 <Nav.Item itemKey={'about'} icon={<IconHelpCircle />} />
                 <>
-                {!isMobile() && (
+                  {!isMobile() && (
                     <Switch
                       checkedText='🌞'
                       size={'large'}

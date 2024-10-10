@@ -24,7 +24,13 @@ root.render(
       <UserProvider>
         <BrowserRouter>
           <ThemeProvider>
-            <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <Layout
+              style={{
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               <Header>
                 <HeaderBar />
               </Header>
@@ -33,9 +39,7 @@ root.render(
                   <SiderBar />
                 </Sider>
                 <Layout>
-                  <Content
-                    style={{ overflowY: 'auto', padding: '24px' }}
-                  >
+                  <Content style={{ overflowY: 'auto', padding: '24px' }}>
                     <App />
                   </Content>
                   <Layout.Footer>

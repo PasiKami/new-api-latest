@@ -2,16 +2,15 @@ package dto
 
 import "encoding/json"
 
-type ResponseFormat struct {
-	Type string `json:"type,omitempty"`
-}
-
 type GeneralOpenAIRequest struct {
 	Model               string         `json:"model,omitempty"`
 	Messages            []Message      `json:"messages,omitempty"`
 	Prompt              any            `json:"prompt,omitempty"`
+	BestOf              int            `json:"best_of,omitempty"`
+	Echo                bool           `json:"echo,omitempty"`
 	Stream              bool           `json:"stream,omitempty"`
 	StreamOptions       *StreamOptions `json:"stream_options,omitempty"`
+	Suffix              string         `json:"suffix,omitempty"`
 	MaxTokens           uint           `json:"max_tokens,omitempty"`
 	MaxCompletionTokens uint           `json:"max_completion_tokens,omitempty"`
 	Temperature         float64        `json:"temperature,omitempty"`
@@ -30,9 +29,11 @@ type GeneralOpenAIRequest struct {
 	Tools               []ToolCall     `json:"tools,omitempty"`
 	ToolChoice          any            `json:"tool_choice,omitempty"`
 	User                string         `json:"user,omitempty"`
-	LogProbs            bool           `json:"logprobs,omitempty"`
+	LogitBias           any            `json:"logit_bias,omitempty"`
+	LogProbs            any            `json:"logprobs,omitempty"`
 	TopLogProbs         int            `json:"top_logprobs,omitempty"`
 	Dimensions          int            `json:"dimensions,omitempty"`
+	ParallelToolCalls   bool           `json:"parallel_Tool_Calls,omitempty"`
 	EncodingFormat      string         `json:"encoding_format,omitempty"`
 }
 

@@ -46,37 +46,33 @@ function renderQuotaType(type) {
 function renderAvailable(available) {
   return available ? (
     <Popover
-        content={
-          <div style={{ padding: 8 }}>您的分组可以使用该模型</div>
-        }
-        position='top'
-        key={available}
-        style={{
-            backgroundColor: 'rgba(var(--semi-blue-4),1)',
-            borderColor: 'rgba(var(--semi-blue-4),1)',
-            color: 'var(--semi-color-white)',
-            borderWidth: 1,
-            borderStyle: 'solid',
-        }}
+      content={<div style={{ padding: 8 }}>您的分组可以使用该模型</div>}
+      position='top'
+      key={available}
+      style={{
+        backgroundColor: 'rgba(var(--semi-blue-4),1)',
+        borderColor: 'rgba(var(--semi-blue-4),1)',
+        color: 'var(--semi-color-white)',
+        borderWidth: 1,
+        borderStyle: 'solid',
+      }}
     >
-        <IconVerify style={{ color: 'green' }}  size="large" />
+      <IconVerify style={{ color: 'green' }} size='large' />
     </Popover>
   ) : (
     <Popover
-        content={
-          <div style={{ padding: 8 }}>您的分组无权使用该模型</div>
-        }
-        position='top'
-        key={available}
-        style={{
-            backgroundColor: 'rgba(var(--semi-blue-4),1)',
-            borderColor: 'rgba(var(--semi-blue-4),1)',
-            color: 'var(--semi-color-white)',
-            borderWidth: 1,
-            borderStyle: 'solid',
-        }}
+      content={<div style={{ padding: 8 }}>您的分组无权使用该模型</div>}
+      position='top'
+      key={available}
+      style={{
+        backgroundColor: 'rgba(var(--semi-blue-4),1)',
+        borderColor: 'rgba(var(--semi-blue-4),1)',
+        color: 'var(--semi-color-white)',
+        borderWidth: 1,
+        borderStyle: 'solid',
+      }}
     >
-        <IconUploadError style={{ color: '#FFA54F' }}  size="large" />
+      <IconUploadError style={{ color: '#FFA54F' }} size='large' />
     </Popover>
   );
 }
@@ -90,12 +86,12 @@ const ModelPricing = () => {
   const [selectedGroup, setSelectedGroup] = useState('default');
 
   const rowSelection = useMemo(
-      () => ({
-          onChange: (selectedRowKeys, selectedRows) => {
-            setSelectedRowKeys(selectedRowKeys);
-          },
-      }),
-      []
+    () => ({
+      onChange: (selectedRowKeys, selectedRows) => {
+        setSelectedRowKeys(selectedRowKeys);
+      },
+    }),
+    [],
   );
 
   const handleChange = (value) => {
@@ -121,7 +117,7 @@ const ModelPricing = () => {
       title: '可用性',
       dataIndex: 'available',
       render: (text, record, index) => {
-         // if record.enable_groups contains selectedGroup, then available is true
+        // if record.enable_groups contains selectedGroup, then available is true
         return renderAvailable(record.enable_groups.includes(selectedGroup));
       },
       sorter: (a, b) => a.available - b.available,
@@ -178,11 +174,7 @@ const ModelPricing = () => {
             {text.map((group) => {
               if (group === selectedGroup) {
                 return (
-                  <Tag
-                    color='blue'
-                    size='large'
-                    prefixIcon={<IconVerify />}
-                  >
+                  <Tag color='blue' size='large' prefixIcon={<IconVerify />}>
                     {group}
                   </Tag>
                 );
@@ -193,7 +185,12 @@ const ModelPricing = () => {
                     size='large'
                     onClick={() => {
                       setSelectedGroup(group);
-                      showInfo('当前查看的分组为：' + group + '，倍率为：' + groupRatio[group]);
+                      showInfo(
+                        '当前查看的分组为：' +
+                          group +
+                          '，倍率为：' +
+                          groupRatio[group],
+                      );
                     }}
                   >
                     {group}
@@ -207,19 +204,23 @@ const ModelPricing = () => {
     },
     {
       title: () => (
-        <span style={{'display':'flex','alignItems':'center'}}>
+        <span style={{ display: 'flex', alignItems: 'center' }}>
           倍率
           <Popover
             content={
-              <div style={{ padding: 8 }}>倍率是为了方便换算不同价格的模型<br/>点击查看倍率说明</div>
+              <div style={{ padding: 8 }}>
+                倍率是为了方便换算不同价格的模型
+                <br />
+                点击查看倍率说明
+              </div>
             }
             position='top'
             style={{
-                backgroundColor: 'rgba(var(--semi-blue-4),1)',
-                borderColor: 'rgba(var(--semi-blue-4),1)',
-                color: 'var(--semi-color-white)',
-                borderWidth: 1,
-                borderStyle: 'solid',
+              backgroundColor: 'rgba(var(--semi-blue-4),1)',
+              borderColor: 'rgba(var(--semi-blue-4),1)',
+              color: 'var(--semi-color-white)',
+              borderWidth: 1,
+              borderStyle: 'solid',
             }}
           >
             <IconHelpCircle
@@ -239,7 +240,9 @@ const ModelPricing = () => {
           <>
             <Text>模型：{record.quota_type === 0 ? text : '无'}</Text>
             <br />
-            <Text>补全：{record.quota_type === 0 ? completionRatio : '无'}</Text>
+            <Text>
+              补全：{record.quota_type === 0 ? completionRatio : '无'}
+            </Text>
             <br />
             <Text>分组：{groupRatio[selectedGroup]}</Text>
           </>
@@ -254,10 +257,12 @@ const ModelPricing = () => {
         let content = text;
         if (record.quota_type === 0) {
           // 这里的 *2 是因为 1倍率=0.002刀，请勿删除
-          let inputRatioPrice = record.model_ratio * 2 * groupRatio[selectedGroup];
+          let inputRatioPrice =
+            record.model_ratio * 2 * groupRatio[selectedGroup];
           let completionRatioPrice =
             record.model_ratio *
-            record.completion_ratio * 2 *
+            record.completion_ratio *
+            2 *
             groupRatio[selectedGroup];
           content = (
             <>
@@ -316,7 +321,7 @@ const ModelPricing = () => {
     const { success, message, data, group_ratio } = res.data;
     if (success) {
       setGroupRatio(group_ratio);
-      setSelectedGroup(userState.user ? userState.user.group : 'default')
+      setSelectedGroup(userState.user ? userState.user.group : 'default');
       setModelsFormat(data, group_ratio);
     } else {
       showError(message);
@@ -346,35 +351,40 @@ const ModelPricing = () => {
       <Layout>
         {userState.user ? (
           <Banner
-            type="success"
+            type='success'
             fullMode={false}
-            closeIcon="null"
+            closeIcon='null'
             description={`您的默认分组为：${userState.user.group}，分组倍率为：${groupRatio[userState.user.group]}`}
           />
         ) : (
           <Banner
             type='warning'
             fullMode={false}
-            closeIcon="null"
+            closeIcon='null'
             description={`您还未登陆，显示的价格为默认分组倍率: ${groupRatio['default']}`}
           />
         )}
-        <br/>
-        <Banner 
-            type="info"
-            fullMode={false}
-            description={<div>按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 × 补全倍率）/ 500000 （单位：美元）</div>}
-            closeIcon="null"
+        <br />
+        <Banner
+          type='info'
+          fullMode={false}
+          description={
+            <div>
+              按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 ×
+              补全倍率）/ 500000 （单位：美元）
+            </div>
+          }
+          closeIcon='null'
         />
-        <br/>
+        <br />
         <Button
           theme='light'
           type='tertiary'
-          style={{width: 150}}
+          style={{ width: 150 }}
           onClick={() => {
             copyText(selectedRowKeys);
           }}
-          disabled={selectedRowKeys == ""}
+          disabled={selectedRowKeys == ''}
         >
           复制选中模型
         </Button>

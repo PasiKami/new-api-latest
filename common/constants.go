@@ -9,9 +9,20 @@ import (
 	"github.com/google/uuid"
 )
 
+// Pay Settings
+
+var StripeApiSecret = ""
+var StripeWebhookSecret = ""
+var StripePriceId = ""
+var PaymentEnabled = false
+var StripeUnitPrice = 8.0
+var MinTopUp = 5
+
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
 var SystemName = "New API"
+var ServerAddress = "http://localhost:3000"
+var OutProxyUrl = ""
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
@@ -41,10 +52,12 @@ var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
 var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false
+var LinuxDoOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TelegramOAuthEnabled = false
 var TurnstileCheckEnabled = false
 var RegisterEnabled = true
+var UserSelfDeletionEnabled = false
 
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制
 var EmailAliasRestrictionEnabled = false  // 是否启用邮箱别名限制
@@ -74,6 +87,10 @@ var SMTPToken = ""
 
 var GitHubClientId = ""
 var GitHubClientSecret = ""
+
+var LinuxDoClientId = ""
+var LinuxDoClientSecret = ""
+var LinuxDoMinLevel = 0
 
 var WeChatServerAddress = ""
 var WeChatServerToken = ""
@@ -181,6 +198,12 @@ const (
 	ChannelStatusEnabled          = 1 // don't use 0, 0 is the default value!
 	ChannelStatusManuallyDisabled = 2 // also don't use 0
 	ChannelStatusAutoDisabled     = 3
+)
+
+const (
+	TopUpStatusPending = "pending"
+	TopUpStatusSuccess = "success"
+	TopUpStatusExpired = "expired"
 )
 
 const (

@@ -146,7 +146,7 @@ func buildTestRequest(model string) *dto.GeneralOpenAIRequest {
 		Model:  "", // this will be set later
 		Stream: false,
 	}
-	if strings.HasPrefix(model, "o1-") {
+	if "o1" == model || strings.HasPrefix(model, "o1-") {
 		testRequest.MaxCompletionTokens = 1
 	} else {
 		testRequest.MaxTokens = 1

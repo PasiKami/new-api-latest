@@ -86,9 +86,9 @@ var defaultModelRatio = map[string]float64{
 	"claude-2.0":                     4,     // $8 / 1M tokens
 	"claude-2.1":                     4,     // $8 / 1M tokens
 	"claude-3-haiku-20240307":        0.125, // $0.25 / 1M tokens
+	"claude-3-5-sonnet-20240620":     1.5,   // $3 / 1M tokens
 	"claude-3-sonnet-20240229":       1.5,   // $3 / 1M tokens
-	"claude-3-5-sonnet-20240620":     1.5,
-	"claude-3-opus-20240229":         7.5, // $15 / 1M tokens
+	"claude-3-opus-20240229":         7.5,   // $15 / 1M tokens
 	"ERNIE-4.0-8K":                   0.120 * RMB,
 	"ERNIE-3.5-8K":                   0.012 * RMB,
 	"ERNIE-3.5-8K-0205":              0.024 * RMB,
@@ -182,8 +182,10 @@ var defaultModelRatio = map[string]float64{
 var defaultModelPrice = map[string]float64{
 	"suno_music":        0.1,
 	"suno_lyrics":       0.01,
+	"dall-e-2":          0.02,
 	"dall-e-3":          0.04,
 	"gpt-4-gizmo-*":     0.1,
+	"g-*":               0.1,
 	"mj_imagine":        0.1,
 	"mj_variation":      0.1,
 	"mj_reroll":         0.1,
@@ -213,9 +215,10 @@ var (
 
 var CompletionRatio map[string]float64 = nil
 var defaultCompletionRatio = map[string]float64{
-	"gpt-4-gizmo-*":  2,
-	"gpt-4o-gizmo-*": 3,
-	"gpt-4-all":      2,
+	"gpt-4-gizmo-*": 2,
+	"g-*":           2,
+	"gpt-4-all":     2,
+	"gpt-4o-all":    2,
 }
 
 func GetModelPriceMap() map[string]float64 {
@@ -248,9 +251,8 @@ func GetModelPrice(name string, printErr bool) (float64, bool) {
 	GetModelPriceMap()
 	if strings.HasPrefix(name, "gpt-4-gizmo") {
 		name = "gpt-4-gizmo-*"
-	}
-	if strings.HasPrefix(name, "gpt-4o-gizmo") {
-		name = "gpt-4o-gizmo-*"
+	} else if strings.HasPrefix(name, "g-") {
+		name = "g-*"
 	}
 	price, ok := modelPriceMap[name]
 	if !ok {
@@ -291,6 +293,8 @@ func GetModelRatio(name string) float64 {
 	GetModelRatioMap()
 	if strings.HasPrefix(name, "gpt-4-gizmo") {
 		name = "gpt-4-gizmo-*"
+	} else if strings.HasPrefix(name, "g-") {
+		name = "g-*"
 	}
 	ratio, ok := modelRatioMap[name]
 	if !ok {
@@ -331,45 +335,44 @@ func UpdateCompletionRatioByJSONString(jsonStr string) error {
 func GetCompletionRatio(name string) float64 {
 	if strings.HasPrefix(name, "gpt-4-gizmo") {
 		name = "gpt-4-gizmo-*"
-	}
-	if strings.HasPrefix(name, "gpt-4o-gizmo") {
-		name = "gpt-4o-gizmo-*"
-	}
-	if strings.HasPrefix(name, "gpt-4") && !strings.HasSuffix(name, "-all") && !strings.HasSuffix(name, "-gizmo-*") {
-		if strings.HasPrefix(name, "gpt-4-turbo") || strings.HasSuffix(name, "preview") {
-			return 3
-		}
-		if strings.HasPrefix(name, "gpt-4o") {
-			if strings.HasPrefix(name, "gpt-4o-mini") || name == "gpt-4o-2024-08-06" {
-				return 4
-			}
-			return 3
-		}
-		return 2
-	}
-	if strings.HasPrefix(name, "o1-") {
-		return 4
-	}
-	if name == "chatgpt-4o-latest" {
-		return 3
-	}
-	if strings.Contains(name, "claude-instant-1") {
-		return 3
-	} else if strings.Contains(name, "claude-2") {
-		return 3
-	} else if strings.Contains(name, "claude-3") {
-		return 5
+	} else if strings.HasPrefix(name, "g-") {
+		name = "g-*"
 	}
 	if strings.HasPrefix(name, "gpt-3.5") {
-		if name == "gpt-3.5-turbo" || strings.HasSuffix(name, "0125") {
-			// https://openai.com/blog/new-embedding-models-and-api-updates
-			// Updated GPT-3.5 Turbo model and lower pricing
+		if strings.HasSuffix(name, "0125") {
 			return 3
 		}
 		if strings.HasSuffix(name, "1106") {
 			return 2
 		}
+		if name == "gpt-3.5-turbo" {
+			return 3
+		}
+
 		return 4.0 / 3.0
+	}
+	if strings.HasPrefix(name, "gpt-4") && name != "gpt-4-all" && name != "gpt-4-gizmo-*" {
+		if strings.HasPrefix(name, "gpt-4o-mini") || "gpt-4o-2024-08-06" == name {
+			return 4
+		}
+
+		if strings.HasSuffix(name, "preview") || strings.HasPrefix(name, "gpt-4-turbo") || strings.HasPrefix(name, "gpt-4o") {
+			return 3
+		}
+		return 2
+	}
+	if "o1" == name || strings.HasPrefix(name, "o1-") {
+		return 4
+	}
+	if name == "chatgpt-4o-latest" {
+		return 3
+	}
+	if strings.HasPrefix(name, "claude-instant-1") {
+		return 3
+	} else if strings.HasPrefix(name, "claude-2") {
+		return 3
+	} else if strings.HasPrefix(name, "claude-3") {
+		return 5
 	}
 	if strings.HasPrefix(name, "mistral-") {
 		return 3

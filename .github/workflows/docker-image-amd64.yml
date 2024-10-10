@@ -1,9 +1,6 @@
 name: Publish Docker image (amd64)
 
 on:
-  push:
-    tags:
-      - '*'
   workflow_dispatch:
     inputs:
       name:
@@ -42,7 +39,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            calciumion/new-api
+            pengzhile/new-api
             ghcr.io/${{ github.repository }}
 
       - name: Build and push Docker images

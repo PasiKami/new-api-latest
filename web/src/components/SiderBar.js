@@ -17,7 +17,8 @@ import {
   IconCalendarClock, IconChecklistStroked,
   IconComment, IconCommentStroked,
   IconCreditCard,
-  IconGift, IconHelpCircle,
+  IconGift,
+  IconHelpCircle,
   IconHistogram,
   IconHome,
   IconImage,
@@ -25,7 +26,7 @@ import {
   IconLayers,
   IconPriceTag,
   IconSetting,
-  IconUser
+  IconUser,
 } from '@douyinfe/semi-icons';
 import { Avatar, Dropdown, Layout, Nav, Switch } from '@douyinfe/semi-ui';
 import { setStatusData } from '../helpers/data.js';
@@ -160,9 +161,9 @@ const SiderBar = () => {
         to: '/task',
         icon: <IconChecklistStroked />,
         className:
-            localStorage.getItem('enable_task') === 'true'
-                ? 'semi-navigation-item-normal'
-                : 'tableHiddle',
+          localStorage.getItem('enable_task') === 'true'
+            ? 'semi-navigation-item-normal'
+            : 'tableHiddle',
       },
       {
         text: '设置',

@@ -11,6 +11,7 @@ import EditUser from './pages/User/EditUser';
 import { getLogo, getSystemName } from './helpers';
 import PasswordResetForm from './components/PasswordResetForm';
 import GitHubOAuth from './components/GitHubOAuth';
+import LinuxDoOAuth from './components/LinuxDoOAuth';
 import PasswordResetConfirm from './components/PasswordResetConfirm';
 import { UserContext } from './context/User';
 import Channel from './pages/Channel';
@@ -182,6 +183,14 @@ function App() {
           }
         />
         <Route
+          path='/oauth/linuxdo'
+          element={
+            <Suspense fallback={<Loading></Loading>}>
+              <LinuxDoOAuth />
+            </Suspense>
+          }
+        />
+        <Route
           path='/setting'
           element={
             <PrivateRoute>
@@ -264,19 +273,19 @@ function App() {
           }
         />
         {/* 方便使用chat2link直接跳转聊天... */}
-          <Route
-            path='/chat2link'
-            element={
-              <PrivateRoute>
-                <Suspense fallback={<Loading></Loading>}>
-                    <Chat2Link />
-                </Suspense>
-              </PrivateRoute>
-            }
-          />
-          <Route path='*' element={<NotFound />} />
-        </Routes>
-      </>
+        <Route
+          path='/chat2link'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading></Loading>}>
+                <Chat2Link />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route path='*' element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

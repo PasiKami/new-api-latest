@@ -18,8 +18,9 @@ import {
   Select,
   SideSheet,
   Space,
-  Spin, TextArea,
-  Typography
+  Spin,
+  TextArea,
+  Typography,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import { Divider } from 'semantic-ui-react';
@@ -46,7 +47,7 @@ const EditToken = (props) => {
     model_limits_enabled,
     model_limits,
     allow_ips,
-    group
+    group,
   } = inputs;
   // const [visible, setVisible] = useState(false);
   const [models, setModels] = useState({});
@@ -97,11 +98,11 @@ const EditToken = (props) => {
     if (success) {
       // return data is a map, key is group name, value is group description
       // label is group description, value is group name
-        let localGroupOptions = Object.keys(data).map((group) => ({
-            label: data[group],
-            value: group,
-        }));
-        setGroups(localGroupOptions);
+      let localGroupOptions = Object.keys(data).map((group) => ({
+        label: data[group],
+        value: group,
+      }));
+      setGroups(localGroupOptions);
     } else {
       showError(message);
     }
@@ -442,7 +443,7 @@ const EditToken = (props) => {
           <div style={{ marginTop: 10 }}>
             <Typography.Text>令牌分组，默认为用户的分组</Typography.Text>
           </div>
-          {groups.length > 0 ?
+          {groups.length > 0 ? (
             <Select
               style={{ marginTop: 8 }}
               placeholder={'令牌分组，默认为用户的分组'}
@@ -455,14 +456,15 @@ const EditToken = (props) => {
               value={inputs.group}
               autoComplete='new-password'
               optionList={groups}
-            />:
+            />
+          ) : (
             <Select
               style={{ marginTop: 8 }}
               placeholder={'管理员未设置用户可选分组'}
               name='gruop'
               disabled={true}
             />
-          }
+          )}
         </Spin>
       </SideSheet>
     </>

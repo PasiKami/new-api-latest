@@ -8,14 +8,15 @@ import {
 } from '../helpers';
 
 import { ITEMS_PER_PAGE } from '../constants';
-import {renderGroup, renderQuota} from '../helpers/render';
+import { renderGroup, renderQuota } from '../helpers/render';
 import {
   Button,
   Dropdown,
   Form,
   Modal,
   Popconfirm,
-  Popover, Space,
+  Popover,
+  Space,
   SplitButtonGroup,
   Table,
   Tag,
@@ -119,12 +120,14 @@ const TokensTable = () => {
       dataIndex: 'status',
       key: 'status',
       render: (text, record, index) => {
-        return <div>
-          <Space>
-            {renderStatus(text, record.model_limits_enabled)}
-            {renderGroup(record.group)}
-          </Space>
-        </div>;
+        return (
+          <div>
+            <Space>
+              {renderStatus(text, record.model_limits_enabled)}
+              {renderGroup(record.group)}
+            </Space>
+          </div>
+        );
       },
     },
     {

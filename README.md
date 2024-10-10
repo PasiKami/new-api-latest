@@ -51,7 +51,7 @@
 
 ## 模型支持
 此版本额外支持以下模型：
-1. 第三方模型 **gps** （gpt-4-gizmo-*）
+1. 第三方模型 **gps** （gpt-4-gizmo-*, g-*）
 2. 智谱glm-4v，glm-4v识图
 3. Anthropic Claude 3
 4. [Ollama](https://github.com/ollama/ollama?tab=readme-ov-file)，添加渠道时，密钥可以随便填写，默认的请求地址是[http://localhost:11434](http://localhost:11434)，如果需要修改请在渠道中修改
@@ -63,7 +63,7 @@
 10. Dify
 11. Vertex AI，目前兼容Claude，Gemini，Llama3.1
 
-您可以在渠道中添加自定义模型gpt-4-gizmo-*，此模型并非OpenAI官方模型，而是第三方模型，使用官方key无法调用。
+您可以在渠道中添加自定义模型gpt-4-gizmo-*或g-*，此模型并非OpenAI官方模型，而是第三方模型，使用官方key无法调用。
 
 ## 比原版One API多出的配置
 - `GENERATE_DEFAULT_TOKEN`：是否为新注册用户生成初始令牌，默认为 `false`。
@@ -132,9 +132,6 @@ docker run --name new-api -d --restart always -p 3000:3000 -e SQL_DSN="root:1234
 夜间模式  
 ![image](https://github.com/Calcium-Ion/new-api/assets/61247483/1c66b593-bb9e-4757-9720-ff2759539242)
 ![image](https://github.com/Calcium-Ion/new-api/assets/61247483/af9a07ee-5101-4b3d-8bd9-ae21a4fd7e9e)
-
-## 交流群
-<img src="https://github.com/Calcium-Ion/new-api/assets/61247483/de536a8a-0161-47a7-a0a2-66ef6de81266" width="200">
 
 ## 相关项目
 - [One API](https://github.com/songquanpeng/one-api)：原版项目

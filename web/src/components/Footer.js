@@ -25,11 +25,7 @@ const FooterBar = () => {
         New API {import.meta.env.VITE_REACT_APP_VERSION}{' '}
       </a>
       由{' '}
-      <a
-        href='https://github.com/Calcium-Ion'
-        target='_blank'
-        rel='noreferrer'
-      >
+      <a href='https://github.com/Calcium-Ion' target='_blank' rel='noreferrer'>
         Calcium-Ion
       </a>{' '}
       开发，基于{' '}

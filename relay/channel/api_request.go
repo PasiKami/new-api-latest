@@ -3,12 +3,13 @@ package channel
 import (
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"one-api/relay/common"
 	"one-api/relay/constant"
 	"one-api/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Request) {
@@ -67,7 +68,15 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 }
 
 func doRequest(c *gin.Context, req *http.Request) (*http.Response, error) {
-	resp, err := service.GetHttpClient().Do(req)
+	isStream := c.GetBool("stream")
+	var resp *http.Response
+	var err error
+	if isStream {
+		resp, err = service.GetStreamHttpClient().Do(req)
+	} else {
+		resp, err = service.GetHttpClient().Do(req)
+	}
+
 	if err != nil {
 		return nil, err
 	}

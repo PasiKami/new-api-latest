@@ -8,6 +8,7 @@ import (
 
 var httpClient *http.Client
 var impatientHTTPClient *http.Client
+var streamhttpClient *http.Client
 
 func init() {
 	if common.RelayTimeout == 0 {
@@ -15,6 +16,13 @@ func init() {
 	} else {
 		httpClient = &http.Client{
 			Timeout: time.Duration(common.RelayTimeout) * time.Second,
+		}
+	}
+	if common.StreamRelayTimeout == 0 {
+		streamhttpClient = &http.Client{}
+	} else {
+		streamhttpClient = &http.Client{
+			Timeout: time.Duration(common.StreamRelayTimeout) * time.Second,
 		}
 	}
 
@@ -25,6 +33,10 @@ func init() {
 
 func GetHttpClient() *http.Client {
 	return httpClient
+}
+
+func GetStreamHttpClient() *http.Client {
+	return streamhttpClient
 }
 
 func GetImpatientHttpClient() *http.Client {

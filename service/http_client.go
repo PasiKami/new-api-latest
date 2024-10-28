@@ -22,7 +22,9 @@ func init() {
 		streamhttpClient = &http.Client{}
 	} else {
 		streamhttpClient = &http.Client{
-			Timeout: time.Duration(common.StreamRelayTimeout) * time.Second,
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: time.Duration(common.StreamRelayTimeout) * time.Second, // 设置首字响应超时
+			},
 		}
 	}
 

@@ -61,6 +61,7 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 		}
 	}
 	relayInfo.IsStream = textRequest.Stream
+	c.Set("stream", textRequest.Stream)
 	return textRequest, nil
 }
 

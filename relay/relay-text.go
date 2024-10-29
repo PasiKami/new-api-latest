@@ -41,6 +41,11 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 	if textRequest.Model == "" {
 		return nil, errors.New("model is required")
 	}
+	if strings.HasPrefix(textRequest.Model, "o1") && !strings.Contains(textRequest.Model, "all") {
+		if textRequest.Stream {
+			return nil, errors.New("o1 series models do not support streaming, please set stream to false")
+		}
+	}
 	switch relayInfo.RelayMode {
 	case relayconstant.RelayModeCompletions:
 		if textRequest.Prompt == "" {

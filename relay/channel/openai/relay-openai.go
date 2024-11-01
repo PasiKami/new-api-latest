@@ -291,6 +291,11 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 			}, nil
 		}
 	}
+
+	if model == "gpt-4o-2024-08-06" {
+		simpleResponse.Usage.PromptTokens = promptTokens
+	}
+
 	return nil, &simpleResponse.Usage
 }
 

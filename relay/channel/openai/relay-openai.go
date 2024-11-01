@@ -293,6 +293,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	}
 
 	if model == "gpt-4o-2024-08-06" {
+		common.SysLog(fmt.Sprintf("model gpt-4o-2024-08-06, set prompt_tokens: %d, real prompt_tokens: %d", promptTokens, simpleResponse.Usage.PromptTokens))
 		simpleResponse.Usage.PromptTokens = promptTokens
 	}
 

@@ -209,43 +209,14 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
 	}
-	// **新增的逻辑开始**
-	if strings.Contains(model, "o1") {
-		common.SysLog("model name contains 'o1', delete content_filter_results")
-		// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
-		// 将响应体解析为通用的 map
-		var responseMap map[string]interface{}
-		err = json.Unmarshal(responseBody, &responseMap)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
-		}
 
-		// 删除 choices 中的 content_filter_results
-		if choices, ok := responseMap["choices"].([]interface{}); ok {
-			for _, choice := range choices {
-				if choiceMap, ok := choice.(map[string]interface{}); ok {
-					delete(choiceMap, "content_filter_results")
-				}
-			}
-		}
-
-		// 删除顶层的 prompt_filter_results
-		delete(responseMap, "prompt_filter_results")
-
-		// 将修改后的响应重新序列化为 JSON
-		responseBody, err = json.Marshal(responseMap)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
-		}
-
+	// 调用处理响应体的函数
+	responseBody, err = processResponseBody(responseBody, model, promptTokens, &simpleResponse)
+	if err == nil {
 		// 重置 resp.Body，并更新 Content-Length 头
 		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
 		resp.ContentLength = int64(len(responseBody))
 		resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
-
-	} else {
-		// 如果模型名称不包含 "o1"，重置 resp.Body
-		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
 	}
 	if simpleResponse.Error.Type != "" {
 		return &dto.OpenAIErrorWithStatusCode{
@@ -266,6 +237,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
 	}
 	resp.Body.Close()
+
 	if simpleResponse.Usage.TotalTokens == 0 || (simpleResponse.Usage.PromptTokens == 0 && simpleResponse.Usage.CompletionTokens == 0) {
 		completionTokens := 0
 		for _, choice := range simpleResponse.Choices {
@@ -292,12 +264,54 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		}
 	}
 
-	if model == "gpt-4o-2024-08-06" {
-		common.SysLog(fmt.Sprintf("model gpt-4o-2024-08-06, set prompt_tokens: %d, real prompt_tokens: %d", promptTokens, simpleResponse.Usage.PromptTokens))
-		simpleResponse.Usage.PromptTokens = promptTokens
+	return nil, &simpleResponse.Usage
+}
+
+func processResponseBody(responseBody []byte, model string, promptTokens int, simpleResponse *dto.SimpleResponse) ([]byte, error) {
+	if strings.Contains(model, "o1") {
+		common.SysLog("model name contains 'o1', delete content_filter_results")
+		// 将响应体解析为通用的 map
+		var responseMap map[string]interface{}
+		err := json.Unmarshal(responseBody, &responseMap)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal_response_body_to_map_failed: %w", err)
+		}
+
+		// 删除 choices 中的 content_filter_results
+		if choices, ok := responseMap["choices"].([]interface{}); ok {
+			for _, choice := range choices {
+				if choiceMap, ok := choice.(map[string]interface{}); ok {
+					delete(choiceMap, "content_filter_results")
+				}
+			}
+		}
+
+		// 删除顶层的 prompt_filter_results
+		delete(responseMap, "prompt_filter_results")
+
+		// 将修改后的响应重新序列化为 JSON
+		modifiedResponseBody, err := json.Marshal(responseMap)
+		if err != nil {
+			return nil, fmt.Errorf("marshal_modified_response_body_failed: %w", err)
+		}
+		return modifiedResponseBody, nil
 	}
 
-	return nil, &simpleResponse.Usage
+	// 当模型为 gpt-4o-2024-08-06 时，修改返回体中的 usage 中的 prompt_tokens
+	if model == "gpt-4o-2024-08-06" {
+		common.SysLog(fmt.Sprintf("raw model gpt-4o-2024-08-06, set prompt_tokens: %d, real prompt_tokens: %d", promptTokens, simpleResponse.Usage.PromptTokens))
+		simpleResponse.Usage.PromptTokens = promptTokens
+		common.SysLog(fmt.Sprintf("changed model gpt-4o-2024-08-06, prompt_tokens: %d", simpleResponse.Usage.PromptTokens))
+
+		// 将 simpleResponse 重新编码为 JSON
+		modifiedResponseBody, err := json.Marshal(simpleResponse)
+		if err != nil {
+			return nil, fmt.Errorf("marshal_modified_response_body_failed: %w", err)
+		}
+		return modifiedResponseBody, nil
+	}
+
+	return responseBody, nil
 }
 
 func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {

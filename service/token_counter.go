@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pkoukk/tiktoken-go"
 	"image"
 	"log"
 	"math"
@@ -13,6 +12,8 @@ import (
 	"one-api/dto"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/pkoukk/tiktoken-go"
 )
 
 // tokenEncoderMap won't grow after initialization
@@ -90,7 +91,7 @@ func getImageToken(imageUrl *dto.MessageImageUrl, model string, stream bool) (in
 		return baseTokens, nil
 	}
 	// TODO: 非流模式下不计算图片token数量
-	if !constant.GetMediaTokenNotStream && !stream {
+	if !constant.GetMediaTokenNotStream && !stream && model != "gpt-4o-2024-08-06" {
 		return 1000, nil
 	}
 	// 是否统计图片token

@@ -20,6 +20,7 @@ import (
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/sjson"
 )
 
 func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
@@ -301,45 +302,11 @@ func processResponseBody(responseBody []byte, model string, promptTokens int, si
 	if model == "gpt-4o-2024-08-06" {
 		common.SysLog(fmt.Sprintf("raw model gpt-4o-2024-08-06, set prompt_tokens: %d, real prompt_tokens: %d", promptTokens, simpleResponse.Usage.PromptTokens))
 
-		// 定义一个结构体来解析 responseBody
-		type ResponseBody struct {
-			Other json.RawMessage `json:"-"`
-			Usage json.RawMessage `json:"usage"`
-		}
-
-		// 将 responseBody 解析为 ResponseBody 结构体
-		var responseBodyStruct ResponseBody
-		err := json.Unmarshal(responseBody, &responseBodyStruct)
+		modifiedResponseBody, err := sjson.SetBytes(responseBody, "usage.prompt_tokens", promptTokens)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal_response_body_failed: %w", err)
+			return nil, fmt.Errorf("failed to set prompt_tokens: %w", err)
 		}
 
-		// 将 usage 解析为 map
-		var usageMap map[string]interface{}
-		err = json.Unmarshal(responseBodyStruct.Usage, &usageMap)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshal_usage_failed: %w", err)
-		}
-
-		// 修改 usage 中的 prompt_tokens
-		usageMap["prompt_tokens"] = promptTokens
-
-		// 将修改后的 usage 重新编码为 JSON
-		modifiedUsage, err := json.Marshal(usageMap)
-		if err != nil {
-			return nil, fmt.Errorf("marshal_modified_usage_failed: %w", err)
-		}
-
-		// 更新 responseBodyStruct 中的 usage
-		responseBodyStruct.Usage = json.RawMessage(modifiedUsage)
-
-		// 将修改后的 responseBodyStruct 重新编码为 JSON
-		modifiedResponseBody, err := json.Marshal(responseBodyStruct)
-		if err != nil {
-			return nil, fmt.Errorf("marshal_modified_response_body_failed: %w", err)
-		}
-
-		common.SysLog(fmt.Sprintf("changed model gpt-4o-2024-08-06, prompt_tokens: %d", promptTokens))
 		return modifiedResponseBody, nil
 	}
 

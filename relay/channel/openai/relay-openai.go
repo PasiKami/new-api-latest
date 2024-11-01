@@ -300,14 +300,26 @@ func processResponseBody(responseBody []byte, model string, promptTokens int, si
 	// 当模型为 gpt-4o-2024-08-06 时，修改返回体中的 usage 中的 prompt_tokens
 	if model == "gpt-4o-2024-08-06" {
 		common.SysLog(fmt.Sprintf("raw model gpt-4o-2024-08-06, set prompt_tokens: %d, real prompt_tokens: %d", promptTokens, simpleResponse.Usage.PromptTokens))
-		simpleResponse.Usage.PromptTokens = promptTokens
-		common.SysLog(fmt.Sprintf("changed model gpt-4o-2024-08-06, prompt_tokens: %d", simpleResponse.Usage.PromptTokens))
 
-		// 将 simpleResponse 重新编码为 JSON
-		modifiedResponseBody, err := json.Marshal(simpleResponse)
+		// 将 responseBody 解析为通用的 map
+		var responseMap map[string]interface{}
+		err := json.Unmarshal(responseBody, &responseMap)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal_response_body_to_map_failed: %w", err)
+		}
+
+		// 修改 usage 中的 prompt_tokens
+		if usage, ok := responseMap["usage"].(map[string]interface{}); ok {
+			usage["prompt_tokens"] = promptTokens
+		}
+
+		// 将修改后的响应重新序列化为 JSON
+		modifiedResponseBody, err := json.Marshal(responseMap)
 		if err != nil {
 			return nil, fmt.Errorf("marshal_modified_response_body_failed: %w", err)
 		}
+
+		common.SysLog(fmt.Sprintf("changed model gpt-4o-2024-08-06, prompt_tokens: %d", promptTokens))
 		return modifiedResponseBody, nil
 	}
 

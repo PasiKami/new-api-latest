@@ -179,10 +179,10 @@ func SearchUserLogs(userId int, keyword string) (logs []*Log, err error) {
 }
 
 type Stat struct {
-	Quota int `json:"quota"`
-	Rpm   int `json:"rpm"`
-	Tpm   int `json:"tpm"`
-	Qpm   int `json:"qpm"`
+	Quota int     `json:"quota"`
+	Rpm   int     `json:"rpm"`
+	Tpm   int     `json:"tpm"`
+	Qpm   float64 `json:"qpm"`
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int) (stat Stat) {

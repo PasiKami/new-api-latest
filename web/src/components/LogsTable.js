@@ -688,7 +688,7 @@ const LogsTable = () => {
                 TPM: {stat.tpm}
               </Tag>
               <Tag color='yellow' size='large' style={{ padding: 15 }}>
-                TPM: {renderQuota(stat.qpm)}
+                QPM: {renderQuota(stat.qpm)}
               </Tag>
             </Space>
           </Spin>

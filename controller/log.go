@@ -155,6 +155,7 @@ func GetLogsStat(c *gin.Context) {
 			"quota": stat.Quota,
 			"rpm":   stat.Rpm,
 			"tpm":   stat.Tpm,
+			"qpm":   stat.Qpm,
 		},
 	})
 	return

@@ -177,6 +177,7 @@ func GetLogsSelfStat(c *gin.Context) {
 			"quota": quotaNum.Quota,
 			"rpm":   quotaNum.Rpm,
 			"tpm":   quotaNum.Tpm,
+			"qpm":   quotaNum.Qpm,
 			//"token": tokenNum,
 		},
 	})

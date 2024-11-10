@@ -687,6 +687,9 @@ const LogsTable = () => {
               <Tag color='purple' size='large' style={{ padding: 15 }}>
                 TPM: {stat.tpm}
               </Tag>
+              <Tag color='yellow' size='large' style={{ padding: 15 }}>
+                TPM: {stat.qpm}
+              </Tag>
             </Space>
           </Spin>
         </Header>

@@ -12,11 +12,6 @@ type GeminiInlineData struct {
 	Data     string `json:"data"`
 }
 
-type GeminiResponseFormat struct {
-	Type       string `json:"type"`
-	JsonSchema string `json:"json_schema"`
-}
-
 type FunctionCall struct {
 	FunctionName string `json:"name"`
 	Arguments    any    `json:"args"`

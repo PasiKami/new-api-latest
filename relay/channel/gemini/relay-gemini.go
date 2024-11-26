@@ -17,11 +17,7 @@ import (
 
 // Setting safety to the lowest possible values since Gemini is already powerless enough
 func CovertGemini2OpenAI(textRequest dto.GeneralOpenAIRequest) *GeminiChatRequest {
-	var responseFormat GeminiResponseFormat
-	if rf, ok := textRequest.ResponseFormat.(map[string]interface{}); ok {
-		rfBytes, _ := json.Marshal(rf)
-		json.Unmarshal(rfBytes, &responseFormat)
-	}
+
 	geminiRequest := GeminiChatRequest{
 		Contents: make([]GeminiChatContent, 0, len(textRequest.Messages)),
 		SafetySettings: []GeminiChatSafetySettings{
@@ -46,8 +42,8 @@ func CovertGemini2OpenAI(textRequest dto.GeneralOpenAIRequest) *GeminiChatReques
 			Temperature:      textRequest.Temperature,
 			TopP:             textRequest.TopP,
 			MaxOutputTokens:  textRequest.MaxTokens,
-			ResponseMimeType: responseFormat.Type,
-			ResponseSchema:   responseFormat.JsonSchema,
+			ResponseMimeType: textRequest.ResponseFormat.Type,
+			ResponseSchema:   textRequest.ResponseFormat.JsonSchema,
 		},
 	}
 	if textRequest.Tools != nil {

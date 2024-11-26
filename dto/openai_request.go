@@ -4,7 +4,7 @@ import "encoding/json"
 
 type ResponseFormat struct {
 	Type       string `json:"type,omitempty"`
-	JsonSchema any    `json:"json_schema"`
+	JsonSchema any    `json:"json_schema,omitempty"`
 }
 
 type GeneralOpenAIRequest struct {

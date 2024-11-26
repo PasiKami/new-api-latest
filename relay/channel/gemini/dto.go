@@ -12,6 +12,11 @@ type GeminiInlineData struct {
 	Data     string `json:"data"`
 }
 
+type GeminiResponseFormat struct {
+	Type       string `json:"type"`
+	JsonSchema string `json:"json_schema"`
+}
+
 type FunctionCall struct {
 	FunctionName string `json:"name"`
 	Arguments    any    `json:"args"`
@@ -45,6 +50,7 @@ type GeminiChatGenerationConfig struct {
 	CandidateCount   int      `json:"candidateCount,omitempty"`
 	StopSequences    []string `json:"stopSequences,omitempty"`
 	ResponseMimeType any      `json:"responseMimeType,omitempty"`
+	ResponseSchema   any      `json:"responseSchema,omitempty"`
 }
 
 type GeminiChatCandidate struct {

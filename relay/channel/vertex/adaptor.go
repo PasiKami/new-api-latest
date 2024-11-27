@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 	"io"
 	"net/http"
 	"one-api/dto"
@@ -15,6 +13,9 @@ import (
 	"one-api/relay/channel/openai"
 	relaycommon "one-api/relay/common"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 )
 
 const (

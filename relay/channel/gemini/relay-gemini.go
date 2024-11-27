@@ -39,12 +39,14 @@ func CovertGemini2OpenAI(textRequest dto.GeneralOpenAIRequest) *GeminiChatReques
 			},
 		},
 		GenerationConfig: GeminiChatGenerationConfig{
-			Temperature:      textRequest.Temperature,
-			TopP:             textRequest.TopP,
-			MaxOutputTokens:  textRequest.MaxTokens,
-			ResponseMimeType: textRequest.ResponseFormat.Type,
-			ResponseSchema:   textRequest.ResponseFormat.JsonSchema,
+			Temperature:     textRequest.Temperature,
+			TopP:            textRequest.TopP,
+			MaxOutputTokens: textRequest.MaxTokens,
 		},
+	}
+	if textRequest.ResponseFormat != nil {
+		geminiRequest.GenerationConfig.ResponseMimeType = textRequest.ResponseFormat.Type
+		geminiRequest.GenerationConfig.ResponseSchema = textRequest.ResponseFormat.JsonSchema
 	}
 	if textRequest.Tools != nil {
 		functions := make([]dto.FunctionCall, 0, len(textRequest.Tools))

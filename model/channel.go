@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"one-api/common"
 	"strings"
+	"sync"
 
 	"gorm.io/gorm"
 )
@@ -262,7 +263,25 @@ func (channel *Channel) Delete() error {
 	return err
 }
 
+var channelStatusLock sync.Mutex
+
 func UpdateChannelStatusById(id int, status int, reason string) {
+	if common.MemoryCacheEnabled {
+		channelStatusLock.Lock()
+		channelCache, _ := CacheGetChannel(id)
+		// 如果缓存渠道存在，且状态已是目标状态，直接返回
+		if channelCache != nil && channelCache.Status == status {
+			channelStatusLock.Unlock()
+			return
+		}
+		// 如果缓存渠道不存在(说明已经被禁用)，且要设置的状态不为启用，直接返回
+		if channelCache == nil && status != common.ChannelStatusEnabled {
+			channelStatusLock.Unlock()
+			return
+		}
+		CacheUpdateChannelStatus(id, status)
+		channelStatusLock.Unlock()
+	}
 	err := UpdateAbilityStatus(id, status == common.ChannelStatusEnabled)
 	if err != nil {
 		common.SysError("failed to update ability status: " + err.Error())
@@ -286,11 +305,7 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 			common.SysError("failed to update channel status: " + err.Error())
 		}
 	}
-	// 更新缓存
-	if common.MemoryCacheEnabled {
-		InitChannelCache()
-		common.SysLog("Successfully reinitialized channel cache from database")
-	}
+
 }
 
 func UpdateChannelUsedQuota(id int, quota int) {

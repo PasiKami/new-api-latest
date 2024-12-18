@@ -287,10 +287,10 @@ func UpdateChannelStatusById(id int, status int, reason string) {
 		}
 	}
 	// 更新缓存
-	if common.MemoryCacheEnabled {
-		InitChannelCache()
-		common.SysLog("Successfully reinitialized channel cache from database")
-	}
+	// if common.MemoryCacheEnabled {
+	// 	InitChannelCache()
+	// 	common.SysLog("Successfully reinitialized channel cache from database")
+	// }
 }
 
 func UpdateChannelUsedQuota(id int, quota int) {

@@ -7,11 +7,43 @@ import (
 	relaymodel "one-api/dto"
 	"one-api/model"
 	"strings"
+	"sync"
+	"time"
+)
+
+var (
+	disableChannelLock   sync.Map
+	cacheUpdateLock      sync.Mutex
+	cacheUpdateDebouncer *time.Timer
 )
 
 // disable & notify
 func DisableChannel(channelId int, channelName string, reason string) {
+	// 判断该渠道是否已经在处理中
+	if _, loaded := disableChannelLock.LoadOrStore(channelId, true); loaded {
+		return
+	}
+	defer disableChannelLock.Delete(channelId)
+
+	// 从缓存中移除通道
+	if err := model.RemoveChannelFromCache(channelId); err != nil {
+		return // 已经被禁用或不存在
+	}
+
+	// 更新数据库状态
 	model.UpdateChannelStatusById(channelId, common.ChannelStatusAutoDisabled, reason)
+
+	// 延迟更新完整缓存
+	cacheUpdateLock.Lock()
+	if cacheUpdateDebouncer != nil {
+		cacheUpdateDebouncer.Stop()
+	}
+	cacheUpdateDebouncer = time.AfterFunc(5*time.Second, func() {
+		model.InitChannelCache()
+	})
+	cacheUpdateLock.Unlock()
+
+	// 发送通知
 	subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelName, channelId)
 	content := fmt.Sprintf("通道「%s」（#%d）已被禁用，原因：%s", channelName, channelId, reason)
 	notifyRootUser(subject, content)

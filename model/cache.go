@@ -342,3 +342,39 @@ func CacheGetChannel(id int) (*Channel, error) {
 	}
 	return c, nil
 }
+
+func RemoveChannelFromCache(channelId int) error {
+	// 先获取一份当前映射的副本
+	channelSyncLock.RLock()
+	oldChannelsIDM := channelsIDM[channelId]
+	channelSyncLock.RUnlock()
+
+	if oldChannelsIDM == nil {
+		return errors.New("channel not found")
+	}
+
+	// 在锁外构建新的映射
+	newGroup2model2channels := make(map[string]map[string][]*Channel)
+	for group, model2channels := range group2model2channels {
+		newGroup2model2channels[group] = make(map[string][]*Channel)
+		for model, channels := range model2channels {
+			newChannels := make([]*Channel, 0, len(channels))
+			for _, ch := range channels {
+				if ch.Id != channelId {
+					newChannels = append(newChannels, ch)
+				}
+			}
+			if len(newChannels) > 0 {
+				newGroup2model2channels[group][model] = newChannels
+			}
+		}
+	}
+
+	// 最小化锁定时间，仅在替换时加写锁
+	channelSyncLock.Lock()
+	group2model2channels = newGroup2model2channels
+	delete(channelsIDM, channelId)
+	channelSyncLock.Unlock()
+
+	return nil
+}

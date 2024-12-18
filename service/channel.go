@@ -8,13 +8,10 @@ import (
 	"one-api/model"
 	"strings"
 	"sync"
-	"time"
 )
 
 var (
-	disableChannelLock   sync.Map
-	cacheUpdateLock      sync.Mutex
-	cacheUpdateDebouncer *time.Timer
+	disableChannelLock sync.Map
 )
 
 // disable & notify
@@ -34,14 +31,14 @@ func DisableChannel(channelId int, channelName string, reason string) {
 	model.UpdateChannelStatusById(channelId, common.ChannelStatusAutoDisabled, reason)
 
 	// 延迟更新完整缓存
-	cacheUpdateLock.Lock()
-	if cacheUpdateDebouncer != nil {
-		cacheUpdateDebouncer.Stop()
-	}
-	cacheUpdateDebouncer = time.AfterFunc(5*time.Second, func() {
-		model.InitChannelCache()
-	})
-	cacheUpdateLock.Unlock()
+	// cacheUpdateLock.Lock()
+	// if cacheUpdateDebouncer != nil {
+	// 	cacheUpdateDebouncer.Stop()
+	// }
+	// cacheUpdateDebouncer = time.AfterFunc(5*time.Second, func() {
+	// 	model.InitChannelCache()
+	// })
+	// cacheUpdateLock.Unlock()
 
 	// 发送通知
 	subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelName, channelId)

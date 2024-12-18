@@ -344,37 +344,38 @@ func CacheGetChannel(id int) (*Channel, error) {
 }
 
 func RemoveChannelFromCache(channelId int) error {
-	// 先获取一份当前映射的副本
-	channelSyncLock.RLock()
-	oldChannelsIDM := channelsIDM[channelId]
-	channelSyncLock.RUnlock()
+	// 更新 group2model2channels
+	channelSyncLock.Lock()
+	defer channelSyncLock.Unlock()
 
-	if oldChannelsIDM == nil {
-		return errors.New("channel not found")
-	}
+	delete(channelsIDM, channelId)
 
-	// 在锁外构建新的映射
-	newGroup2model2channels := make(map[string]map[string][]*Channel)
 	for group, model2channels := range group2model2channels {
-		newGroup2model2channels[group] = make(map[string][]*Channel)
 		for model, channels := range model2channels {
-			newChannels := make([]*Channel, 0, len(channels))
+			newChannels := channels[:0]
 			for _, ch := range channels {
 				if ch.Id != channelId {
 					newChannels = append(newChannels, ch)
 				}
 			}
-			if len(newChannels) > 0 {
-				newGroup2model2channels[group][model] = newChannels
+			if len(newChannels) == 0 {
+				delete(model2channels, model)
+			} else {
+				group2model2channels[group][model] = append([]*Channel(nil), newChannels...)
 			}
 		}
+		// 如果某个 group 下没有 model 了，可以选择删除该 group
+		empty := true
+		for _, channels := range model2channels {
+			if len(channels) > 0 {
+				empty = false
+				break
+			}
+		}
+		if empty {
+			delete(group2model2channels, group)
+		}
 	}
-
-	// 最小化锁定时间，仅在替换时加写锁
-	channelSyncLock.Lock()
-	group2model2channels = newGroup2model2channels
-	delete(channelsIDM, channelId)
-	channelSyncLock.Unlock()
 
 	return nil
 }

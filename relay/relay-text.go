@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"io"
 	"math"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	"one-api/service"
 	"strings"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,11 +43,11 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 	if textRequest.Model == "" {
 		return nil, errors.New("model is required")
 	}
-	if strings.HasPrefix(textRequest.Model, "o1") && !strings.Contains(textRequest.Model, "all") {
-		if textRequest.Stream {
-			return nil, errors.New("o1 series models do not support streaming, please set stream to false")
-		}
-	}
+	// if strings.HasPrefix(textRequest.Model, "o1") && !strings.Contains(textRequest.Model, "all") {
+	// 	if textRequest.Stream {
+	// 		return nil, errors.New("o1 series models do not support streaming, please set stream to false")
+	// 	}
+	// }
 	switch relayInfo.RelayMode {
 	case relayconstant.RelayModeCompletions:
 		if textRequest.Prompt == "" {

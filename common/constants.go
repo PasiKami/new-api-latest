@@ -120,6 +120,8 @@ var GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_
 // https://docs.cohere.com/docs/safety-modes Type; NONE/CONTEXTUAL/STRICT
 var CohereSafetySetting = GetEnvOrDefaultString("COHERE_SAFETY_SETTING", "NONE")
 
+var ImageProxyPrefix = GetEnvOrDefaultString("IMAGE_PROXY_PREFIX", "None")
+
 const (
 	RequestIdKey = "X-Oneapi-Request-Id"
 )

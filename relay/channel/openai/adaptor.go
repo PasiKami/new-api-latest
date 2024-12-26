@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	relaycommon "one-api/relay/common"
 	"one-api/relay/constant"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Adaptor struct {
@@ -111,6 +112,28 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = 0
 		}
 	}
+	for i, message := range request.Messages {
+		if len(message.Content) > 0 {
+			if !message.IsStringContent() {
+				mediaMessages := message.ParseContent()
+				for j, mm := range mediaMessages {
+					if mm.Type == dto.ContentTypeImageURL {
+						if imgUrl, ok := mm.ImageUrl.(dto.MessageImageUrl); ok {
+							if !strings.HasPrefix(imgUrl.Url, common.ImageProxyPrefix) {
+								imgUrl.Url = common.ImageProxyPrefix + imgUrl.Url
+							}
+							mediaMessages[j].ImageUrl = imgUrl
+						}
+					}
+				}
+				// 将修改后的内容转换回JSON并更新message
+				if jsonContent, err := json.Marshal(mediaMessages); err == nil {
+					request.Messages[i].Content = jsonContent
+				}
+			}
+		}
+	}
+
 	return request, nil
 }
 

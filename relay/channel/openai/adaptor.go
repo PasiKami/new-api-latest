@@ -119,7 +119,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 				for j, mm := range mediaMessages {
 					if mm.Type == dto.ContentTypeImageURL {
 						if imgUrl, ok := mm.ImageUrl.(dto.MessageImageUrl); ok {
-							if !strings.HasPrefix(imgUrl.Url, common.ImageProxyPrefix) {
+							if strings.HasPrefix(imgUrl.Url, "http") && !strings.HasPrefix(imgUrl.Url, common.ImageProxyPrefix) {
 								imgUrl.Url = common.ImageProxyPrefix + imgUrl.Url
 							}
 							mediaMessages[j].ImageUrl = imgUrl

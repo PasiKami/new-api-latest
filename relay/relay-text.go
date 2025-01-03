@@ -388,14 +388,14 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelN
 				common.LogError(ctx, "error consuming token remain quota: "+err.Error())
 			}
 		}
-		// 只有当用户余额小于1000000时才同步缓存
-		if userQuota < 1000000 {
-			common.LogInfo(ctx, fmt.Sprintf("user %d's cached quota is too low: %d, refreshing from db", relayInfo.UserId, userQuota))
-			err := model.CacheUpdateUserQuota(relayInfo.UserId)
-			if err != nil {
-				common.LogError(ctx, "error update user quota cache: "+err.Error())
-			}
-		}
+		// // 只有当用户余额小于1000000时才同步缓存
+		// if userQuota < 1000000 {
+		// 	common.LogInfo(ctx, fmt.Sprintf("user %d's cached quota is too low: %d, refreshing from db", relayInfo.UserId, userQuota))
+		// 	err := model.CacheUpdateUserQuota(relayInfo.UserId)
+		// 	if err != nil {
+		// 		common.LogError(ctx, "error update user quota cache: "+err.Error())
+		// 	}
+		// }
 		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}

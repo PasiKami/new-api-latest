@@ -16,8 +16,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/gin-gonic/gin"
 )
 
 // Setting safety to the lowest possible values since Gemini is already powerless enough

@@ -79,8 +79,6 @@ type GeminiChatGenerationConfig struct {
 	StopSequences    []string `json:"stopSequences,omitempty"`
 	ResponseMimeType any      `json:"responseMimeType,omitempty"`
 	ResponseSchema   any      `json:"responseSchema,omitempty"`
-	ResponseMimeType string   `json:"responseMimeType,omitempty"`
-	ResponseSchema   any      `json:"responseSchema,omitempty"`
 	Seed             int64    `json:"seed,omitempty"`
 }
 

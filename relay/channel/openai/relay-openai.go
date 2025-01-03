@@ -18,11 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
-
-	"github.com/bytedance/gopkg/util/gopool"
-	"github.com/gin-gonic/gin"
-
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

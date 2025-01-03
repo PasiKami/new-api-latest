@@ -30,6 +30,7 @@ var DefaultCollapseSidebar = false // default value of collapse sidebar
 // Any options with "Secret", "Token" in its key won't be return by GetOptions
 
 var SessionSecret = uuid.New().String()
+var CryptoSecret = uuid.New().String()
 
 var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
@@ -121,6 +122,10 @@ var GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_
 var CohereSafetySetting = GetEnvOrDefaultString("COHERE_SAFETY_SETTING", "NONE")
 
 var ImageProxyPrefix = GetEnvOrDefaultString("IMAGE_PROXY_PREFIX", "None")
+
+var MaxImageSize = GetEnvOrDefault("MAX_IMAGE_SIZE", 0) // 默认为0不限制大小
+
+var RequestTimeout = GetEnvOrDefault("REQUEST_TIMEOUT", 0) // 默认为0不限制超时时间
 
 const (
 	RequestIdKey = "X-Oneapi-Request-Id"
@@ -232,6 +237,7 @@ const (
 	ChannelTypeSiliconFlow    = 40
 	ChannelTypeVertexAi       = 41
 	ChannelTypeMistral        = 42
+	ChannelTypeDeepSeek       = 43
 
 	ChannelTypeDummy // this one is only for count, do not add any channel after this
 
@@ -257,7 +263,7 @@ var ChannelBaseURLs = []string{
 	"https://open.bigmodel.cn",            // 16
 	"https://dashscope.aliyuncs.com",      // 17
 	"",                                    // 18
-	"https://ai.360.cn",                   // 19
+	"https://api.360.cn",                  // 19
 	"https://openrouter.ai/api",           // 20
 	"https://api.aiproxy.io",              // 21
 	"https://fastgpt.run/api/openapi",     // 22
@@ -281,4 +287,5 @@ var ChannelBaseURLs = []string{
 	"https://api.siliconflow.cn",                //40
 	"",                                          //41
 	"https://api.mistral.ai",                    //42
+	"https://api.deepseek.com",                  //43
 }

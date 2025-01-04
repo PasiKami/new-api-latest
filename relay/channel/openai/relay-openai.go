@@ -257,7 +257,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	originalModel := c.GetString("originalModel")
 
 	// 判断条件并修改响应体
-	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-08-06" {
+	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
 		var responseMap map[string]interface{}
 		err = json.Unmarshal(responseBody, &responseMap)
 		if err != nil {

@@ -92,17 +92,16 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			data = data[6:]
 			if !strings.HasPrefix(data, "[DONE]") {
 				if shouldModifyModel {
-					// 使用 RawMessage 保留 JSON 结构
-					var rawResponse map[string]json.RawMessage
-					err := json.Unmarshal([]byte(data), &rawResponse)
+					// 使用 map[string]interface{} 解析 JSON
+					var responseMap map[string]interface{}
+					err := json.Unmarshal([]byte(data), &responseMap)
 					if err == nil {
-						// 修改 model 字段
-						if modelJSON, err := json.Marshal("gpt-4o-2024-08-06"); err == nil {
-							rawResponse["model"] = json.RawMessage(modelJSON)
-							// 重新序列化
-							if modifiedData, err := json.Marshal(rawResponse); err == nil {
-								data = string(modifiedData)
-							}
+						// 直接修改 model 字段
+						responseMap["model"] = "gpt-4o-2024-08-06"
+
+						// 重新序列化
+						if modifiedData, err := json.Marshal(responseMap); err == nil {
+							data = string(modifiedData)
 						}
 					}
 				}

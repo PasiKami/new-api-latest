@@ -257,23 +257,19 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 
 	originalModel := c.GetString("originalModel")
 
-	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
-		// 使用 RawMessage 来保留原始 JSON 结构
-		var rawResponse map[string]json.RawMessage
-		err = json.Unmarshal(responseBody, &rawResponse)
+	// 判断条件并修改响应体
+	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-08-06" {
+		var responseMap map[string]interface{}
+		err = json.Unmarshal(responseBody, &responseMap)
 		if err != nil {
 			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
 		}
 
-		// 只修改 model 字段，其他字段保持原样
-		modelJSON, err := json.Marshal("gpt-4o-2024-08-06")
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_model_failed", http.StatusInternalServerError), nil
-		}
-		rawResponse["model"] = json.RawMessage(modelJSON)
+		// 修改model字段
+		responseMap["model"] = "gpt-4o-2024-08-06"
 
-		// 重新序列化，保持原有顺序
-		responseBody, err = json.Marshal(rawResponse)
+		// 重新序列化
+		responseBody, err = json.Marshal(responseMap)
 		if err != nil {
 			return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
 		}

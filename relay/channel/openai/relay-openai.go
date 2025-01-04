@@ -20,6 +20,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/sjson"
 )
 
 func sendStreamData(c *gin.Context, data string, forceFormat bool) error {
@@ -92,17 +93,9 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			data = data[6:]
 			if !strings.HasPrefix(data, "[DONE]") {
 				if shouldModifyModel {
-					// 使用 map[string]interface{} 解析 JSON
-					var responseMap map[string]interface{}
-					err := json.Unmarshal([]byte(data), &responseMap)
-					if err == nil {
-						// 直接修改 model 字段
-						responseMap["model"] = "gpt-4o-2024-08-06"
-
-						// 重新序列化
-						if modifiedData, err := json.Marshal(responseMap); err == nil {
-							data = string(modifiedData)
-						}
+					// 使用 sjson 直接修改 JSON 字符串
+					if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
+						data = modifiedData
 					}
 				}
 				if lastStreamData != "" {
@@ -258,20 +251,11 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 
 	// 判断条件并修改响应体
 	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
-		var responseMap map[string]interface{}
-		err = json.Unmarshal(responseBody, &responseMap)
+		modifiedBody, err := sjson.SetBytes(responseBody, "model", "gpt-4o-2024-08-06")
 		if err != nil {
-			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
+			return service.OpenAIErrorWrapper(err, "modify_response_body_failed", http.StatusInternalServerError), nil
 		}
-
-		// 修改model字段
-		responseMap["model"] = "gpt-4o-2024-08-06"
-
-		// 重新序列化
-		responseBody, err = json.Marshal(responseMap)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
-		}
+		responseBody = modifiedBody
 	}
 
 	err = json.Unmarshal(responseBody, &simpleResponse)

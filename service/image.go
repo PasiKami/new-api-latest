@@ -9,8 +9,9 @@ import (
 	"image"
 	"io"
 	"one-api/common"
-	"strings"
 	"one-api/dto"
+	"strings"
+
 	"golang.org/x/image/webp"
 )
 
@@ -149,7 +150,12 @@ func ConvertImageUrlsToBase64(m *dto.Message) {
 					mimeType, base64Data, err := GetImageFromUrl(urlValue.Url)
 					if err == nil && base64Data != "" {
 						urlValue.Url = fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
-						contentList[i].ImageUrl = urlValue
+						// 重新构建结构体，排除 text 字段
+						newContentItem := dto.MediaContent{
+							Type:     cItem.Type,
+							ImageUrl: urlValue,
+						}
+						contentList[i] = newContentItem
 					}
 				}
 			}

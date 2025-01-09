@@ -201,7 +201,7 @@ func TokenAuth() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())
 			return
 		}
-		userEnabled, err := model.CacheIsUserEnabled(token.UserId)
+		userEnabled, err := model.IsUserEnabled(token.UserId, false)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusInternalServerError, err.Error())
 			return
@@ -212,6 +212,7 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		c.Set("id", token.UserId)
 		c.Set("token_id", token.Id)
+		c.Set("token_key", token.Key)
 		c.Set("token_name", token.Name)
 		c.Set("token_unlimited_quota", token.UnlimitedQuota)
 		if !token.UnlimitedQuota {

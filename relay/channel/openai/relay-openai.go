@@ -13,7 +13,6 @@ import (
 	relaycommon "one-api/relay/common"
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/sjson"
 )
 
 func sendStreamData(c *gin.Context, data string, forceFormat bool) error {
@@ -77,6 +77,8 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 		mu             sync.Mutex
 	)
 	gopool.Go(func() {
+		originalModel := c.GetString("originalModel")
+		shouldModifyModel := originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20"
 		for scanner.Scan() {
 			info.SetFirstResponseTime()
 			ticker.Reset(time.Duration(constant.StreamingTimeout) * time.Second)
@@ -90,6 +92,12 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			mu.Lock()
 			data = data[6:]
 			if !strings.HasPrefix(data, "[DONE]") {
+				if shouldModifyModel {
+					// 使用 sjson 直接修改 JSON 字符串
+					if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
+						data = modifiedData
+					}
+				}
 				if lastStreamData != "" {
 					err := sendStreamData(c, lastStreamData, forceFormat)
 					if err != nil {
@@ -238,48 +246,62 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
+
+	originalModel := c.GetString("originalModel")
+
+	// 判断条件并修改响应体
+	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
+		modifiedBody, err := sjson.SetBytes(responseBody, "model", "gpt-4o-2024-08-06")
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "modify_response_body_failed", http.StatusInternalServerError), nil
+		}
+		responseBody = modifiedBody
+	}
+
 	err = json.Unmarshal(responseBody, &simpleResponse)
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
 	}
-	// **新增的逻辑开始**
-	if strings.Contains(model, "o1") {
-		common.SysLog("model name contains 'o1', delete content_filter_results")
-		// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
-		// 将响应体解析为通用的 map
-		var responseMap map[string]interface{}
-		err = json.Unmarshal(responseBody, &responseMap)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
-		}
+	// Reset response body
+	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// // **新增的逻辑开始**
+	// if strings.Contains(model, "o1") {
+	// 	common.SysLog("model name contains 'o1', delete content_filter_results")
+	// 	// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
+	// 	// 将响应体解析为通用的 map
+	// 	var responseMap map[string]interface{}
+	// 	err = json.Unmarshal(responseBody, &responseMap)
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
+	// 	}
 
-		// 删除 choices 中的 content_filter_results
-		if choices, ok := responseMap["choices"].([]interface{}); ok {
-			for _, choice := range choices {
-				if choiceMap, ok := choice.(map[string]interface{}); ok {
-					delete(choiceMap, "content_filter_results")
-				}
-			}
-		}
+	// 	// 删除 choices 中的 content_filter_results
+	// 	if choices, ok := responseMap["choices"].([]interface{}); ok {
+	// 		for _, choice := range choices {
+	// 			if choiceMap, ok := choice.(map[string]interface{}); ok {
+	// 				delete(choiceMap, "content_filter_results")
+	// 			}
+	// 		}
+	// 	}
 
-		// 删除顶层的 prompt_filter_results
-		delete(responseMap, "prompt_filter_results")
+	// 	// 删除顶层的 prompt_filter_results
+	// 	delete(responseMap, "prompt_filter_results")
 
-		// 将修改后的响应重新序列化为 JSON
-		responseBody, err = json.Marshal(responseMap)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
-		}
+	// 	// 将修改后的响应重新序列化为 JSON
+	// 	responseBody, err = json.Marshal(responseMap)
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
+	// 	}
 
-		// 重置 resp.Body，并更新 Content-Length 头
-		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-		resp.ContentLength = int64(len(responseBody))
-		resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
+	// 	// 重置 resp.Body，并更新 Content-Length 头
+	// 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// 	resp.ContentLength = int64(len(responseBody))
+	// 	resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
 
-	} else {
-		// 如果模型名称不包含 "o1"，重置 resp.Body
-		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	}
+	// } else {
+	// 	// 如果模型名称不包含 "o1"，重置 resp.Body
+	// 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// }
 	if simpleResponse.Error.Type != "" {
 		return &dto.OpenAIErrorWithStatusCode{
 			Error:      simpleResponse.Error,

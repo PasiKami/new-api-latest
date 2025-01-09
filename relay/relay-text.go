@@ -90,6 +90,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		}
 		c.Set("textRequest", textRequest)
 	}
+	c.Set("originalModel", textRequest.Model)
 
 	// map model name
 	//isModelMapped := false
@@ -411,6 +412,9 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelN
 	}
 	if extraContent != "" {
 		logContent += ", " + extraContent
+	}
+	if logModel == "gpt-4o-2024-11-20" && ctx.GetString("originalModel") == "gpt-4o-2024-08-06" {
+		logModel = "gpt-4o-2024-08-06"
 	}
 	other := service.GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, modelPrice)
 	model.RecordConsumeLog(ctx, relayInfo.UserId, relayInfo.ChannelId, promptTokens, completionTokens, logModel,

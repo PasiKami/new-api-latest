@@ -116,6 +116,12 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = 0
 		}
 	}
+	if strings.HasPrefix(request.Model, "gpt") {
+		if request.MaxCompletionTokens != 0 && request.MaxTokens == 0 {
+			request.MaxTokens = request.MaxCompletionTokens
+			request.MaxCompletionTokens = 0
+		}
+	}
 	if common.ImageProxyPrefix != "None" {
 		for i, message := range request.Messages {
 			if len(message.Content) > 0 {

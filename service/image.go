@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"net/http"
 	"one-api/common"
-	"strings"
 	"one-api/dto"
+	"strings"
+
 	"golang.org/x/image/webp"
 )
 
@@ -64,18 +66,27 @@ func GetImageFromUrl(url string) (mimeType string, data string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "image/") {
-		return "", "", fmt.Errorf("invalid content type: %s, required image/*", resp.Header.Get("Content-Type"))
-	}
 	defer resp.Body.Close()
-	buffer := bytes.NewBuffer(nil)
-	_, err = buffer.ReadFrom(resp.Body)
-	if err != nil {
-		return
+
+	// 读取部分字节进行 MIME 判断
+	buf := make([]byte, 512)
+	n, err := io.ReadFull(resp.Body, buf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", "", err
 	}
-	mimeType = resp.Header.Get("Content-Type")
-	data = base64.StdEncoding.EncodeToString(buffer.Bytes())
-	return
+	mimeType = http.DetectContentType(buf[:n])
+	if !strings.HasPrefix(mimeType, "image/") {
+		return "", "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
+	}
+
+	// 复原读取位置，再读取全部数据
+	body := io.MultiReader(bytes.NewReader(buf[:n]), resp.Body)
+	allData, err := io.ReadAll(body)
+	if err != nil {
+		return "", "", err
+	}
+	data = base64.StdEncoding.EncodeToString(allData)
+	return mimeType, data, nil
 }
 
 func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {

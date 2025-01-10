@@ -20,6 +20,23 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 		client.Timeout = time.Duration(requestTimeout) * time.Second
 	}
 
+	// 定义通用headers
+	headers := map[string]string{
+		"User-Agent":                  "OpenAI Image Downloader",
+		"Accept":                      "*/*",
+		"Traceparent":                 "00-676cffe5000000002d5afb66c8b27710-33d22fd10b336f72-00",
+		"Tracestate":                  "dd=p:33d22fd10b336f72;s:0;t.dm:-3;t.tid:676cffe500000000",
+		"X-Datadog-Parent-Id":         "3734099615926153074",
+		"X-Datadog-Sampling-Priority": "0",
+		"X-Datadog-Tags":              "_dd.p.tid=676cffe500000000,_dd.p.dm=-3",
+		"X-Datadog-Trace-Id":          "3268200898483091216",
+		"X-Openai-Internal-Caller":    "mmapi",
+		"X-Openai-Originator":         "",
+		"X-Openai-Originator-Env":     "",
+		"X-Openai-Traffic-Source":     "",
+		"Accept-Encoding":             "gzip",
+	}
+
 	if setting.EnableWorker() {
 		common.SysLog(fmt.Sprintf("downloading file from worker: %s", originUrl))
 		if !strings.HasPrefix(originUrl, "https") {
@@ -40,6 +57,10 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 		if err != nil {
 			return nil, err
 		}
+		// 设置headers
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
 		resp, err = client.Do(req)
 		if err != nil {
 			return nil, err
@@ -50,7 +71,7 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 	if maxImageSize <= 0 {
 		return resp, nil
 	}
-	
+
 	// 使用io.LimitReader限制读取的字节数
 	limitedReader := io.LimitReader(resp.Body, maxImageSize+1) // 读多一个字节以检测是否超出限制
 

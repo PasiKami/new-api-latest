@@ -102,11 +102,19 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
 		return image.Config{}, "", err
 	}
 
-	mimeType := response.Header.Get("Content-Type")
-
+	// 先读取部分数据以判断 MIME 类型
+	buf := make([]byte, 512)
+	n, err := io.ReadFull(response.Body, buf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return image.Config{}, "", err
+	}
+	mimeType := http.DetectContentType(buf[:n])
 	if !strings.HasPrefix(mimeType, "image/") {
 		return image.Config{}, "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
 	}
+
+	// 复原数据流
+	response.Body = io.NopCloser(io.MultiReader(bytes.NewReader(buf[:n]), response.Body))
 
 	var readData []byte
 	for _, limit := range []int64{1024 * 8, 1024 * 24, 1024 * 64} {

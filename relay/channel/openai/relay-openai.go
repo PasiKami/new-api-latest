@@ -312,8 +312,15 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	// And then we will have to send an error response, but in this case, the header has already been set.
 	// So the httpClient will be confused by the response.
 	// For example, Postman will report error, and we cannot check the response at all.
+	necessaryHeaders := map[string]string{
+		"content-type":   "Content-Type", // 使用标准的 HTTP header 格式
+		"content-length": "Content-Length",
+	}
+
 	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
+		if canonicalHeader, exists := necessaryHeaders[strings.ToLower(k)]; exists {
+			c.Writer.Header().Set(canonicalHeader, v[0])
+		}
 	}
 	c.Writer.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(c.Writer, resp.Body)

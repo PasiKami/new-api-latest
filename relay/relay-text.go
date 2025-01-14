@@ -85,9 +85,9 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 			return service.OpenAIErrorWrapperLocal(err, "invalid_text_request", http.StatusBadRequest)
 		}
 		// 将消息中的图片链接转为base64
-		for i := range textRequest.Messages {
-			service.ConvertImageUrlsToBase64(&textRequest.Messages[i])
-		}
+		// for i := range textRequest.Messages {
+		// 	service.ConvertImageUrlsToBase64(&textRequest.Messages[i])
+		// }
 		c.Set("textRequest", textRequest)
 	}
 	c.Set("originalModel", textRequest.Model)
@@ -118,26 +118,27 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	var modelRatio float64
 	//err := service.SensitiveWordsCheck(textRequest)
 
-	if setting.ShouldCheckPromptSensitive() {
-		err = checkRequestSensitive(textRequest, relayInfo)
-		if err != nil {
-			return service.OpenAIErrorWrapperLocal(err, "sensitive_words_detected", http.StatusBadRequest)
-		}
-	}
+	// if setting.ShouldCheckPromptSensitive() {
+	// 	err = checkRequestSensitive(textRequest, relayInfo)
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapperLocal(err, "sensitive_words_detected", http.StatusBadRequest)
+	// 	}
+	// }
 
 	// 获取 promptTokens，如果上下文中已经存在，则直接使用
 	var promptTokens int
-	if value, exists := c.Get("prompt_tokens"); exists {
-		promptTokens = value.(int)
-		relayInfo.PromptTokens = promptTokens
-	} else {
-		promptTokens, err = getPromptTokens(textRequest, relayInfo)
-		// count messages token error 计算promptTokens错误
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
-		}
-		c.Set("prompt_tokens", promptTokens)
-	}
+	promptTokens = 1000
+	// if value, exists := c.Get("prompt_tokens"); exists {
+	// 	promptTokens = value.(int)
+	// 	relayInfo.PromptTokens = promptTokens
+	// } else {
+	// 	promptTokens, err = getPromptTokens(textRequest, relayInfo)
+	// 	// count messages token error 计算promptTokens错误
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
+	// 	}
+	// 	c.Set("prompt_tokens", promptTokens)
+	// }
 
 	if !getModelPriceSuccess {
 		preConsumedTokens := common.PreConsumedQuota

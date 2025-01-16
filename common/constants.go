@@ -127,6 +127,8 @@ var MaxImageSize = GetEnvOrDefault("MAX_IMAGE_SIZE", 0) // 默认为0不限制�
 
 var RequestTimeout = GetEnvOrDefault("REQUEST_TIMEOUT", 0) // 默认为0不限制超时时间
 
+var ConvertImageUrlsToBase64 = GetEnvOrDefaultBool("CONVERT_IMAGE_URLS_TO_BASE64", true)
+
 const (
 	RequestIdKey = "X-Oneapi-Request-Id"
 )

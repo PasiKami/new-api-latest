@@ -100,6 +100,7 @@ func ResetStatusCode(openaiErr *dto.OpenAIErrorWithStatusCode, statusCodeMapping
 	if _, ok := statusCodeMapping[codeStr]; ok {
 		intCode, _ := strconv.Atoi(statusCodeMapping[codeStr])
 		openaiErr.StatusCode = intCode
+		openaiErr.Error.Type = "new_api_error"
 	}
 }
 

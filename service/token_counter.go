@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pkoukk/tiktoken-go"
 	"image"
 	"log"
 	"math"
@@ -14,6 +13,8 @@ import (
 	relaycommon "one-api/relay/common"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/pkoukk/tiktoken-go"
 )
 
 // tokenEncoderMap won't grow after initialization
@@ -113,6 +114,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	var err error
 	var format string
 	if strings.HasPrefix(imageUrl.Url, "http") {
+		common.SysLog(fmt.Sprintf("decoding image url: %s, userID: %d", imageUrl.Url, info.UserId))
 		config, format, err = DecodeUrlImageData(imageUrl.Url)
 	} else {
 		common.SysLog(fmt.Sprintf("decoding image"))

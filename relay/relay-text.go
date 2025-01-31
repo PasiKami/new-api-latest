@@ -240,6 +240,15 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		return openaiErr
 	}
 
+	if usage == nil {
+		_, err = getPromptTokens(textRequest, relayInfo)
+
+		// count messages token error 计算promptTokens错误
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
+		}
+	}
+
 	if strings.HasPrefix(relayInfo.UpstreamModelName, "gpt-4o-audio") {
 		service.PostAudioConsumeQuota(c, relayInfo, usage.(*dto.Usage), ratio, preConsumedQuota, userQuota, modelRatio, groupRatio, modelPrice, getModelPriceSuccess, "")
 	} else {

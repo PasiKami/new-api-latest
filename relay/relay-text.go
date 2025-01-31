@@ -127,20 +127,22 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		}
 	}
 
+	var promptTokens int = 1000
+	relayInfo.PromptTokens = promptTokens
+	// c.Set("prompt_tokens", promptTokens)
 	// 获取 promptTokens，如果上下文中已经存在，则直接使用
-	var promptTokens int
-	if value, exists := c.Get("prompt_tokens"); exists {
-		promptTokens = value.(int)
-		relayInfo.PromptTokens = promptTokens
-	} else {
-		// promptTokens, err = getPromptTokens(textRequest, relayInfo)
-		promptTokens = 1000
-		// count messages token error 计算promptTokens错误
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
-		}
-		c.Set("prompt_tokens", promptTokens)
-	}
+	// if value, exists := c.Get("prompt_tokens"); exists {
+	// 	promptTokens = value.(int)
+	// 	relayInfo.PromptTokens = promptTokens
+	// } else {
+	// 	// promptTokens, err = getPromptTokens(textRequest, relayInfo)
+
+	// 	// count messages token error 计算promptTokens错误
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
+	// 	}
+
+	// }
 
 	if !getModelPriceSuccess {
 		preConsumedTokens := common.PreConsumedQuota

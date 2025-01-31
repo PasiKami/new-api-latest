@@ -16,8 +16,6 @@ export default function SettingsSensitiveWords(props) {
     CheckSensitiveEnabled: false,
     CheckSensitiveOnPromptEnabled: false,
     SensitiveWords: '',
-    ImageBase64Enabled: false,
-    ImageDomainWhitelist: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -129,48 +127,6 @@ export default function SettingsSensitiveWords(props) {
             <Row>
               <Button size='default' onClick={onSubmit}>
                 {t('保存屏蔽词过滤设置')}
-              </Button>
-            </Row>
-          </Form.Section>
-          <Form.Section text={t('图片设置')}>
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Switch
-                  field={'ImageBase64Enabled'}
-                  label={t('启用图片Base64转换')}
-                  size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
-                  onChange={(value) => {
-                    setInputs({
-                      ...inputs,
-                      ImageBase64Enabled: value,
-                    });
-                  }}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Col span={16}>
-                <Form.TextArea
-                  label={t('图片域名白名单')}
-                  extraText={t('一行一个域名，不需要符号分割')}
-                  placeholder={t('一行一个域名，如: example.com')}
-                  field={'ImageDomainWhitelist'}
-                  onChange={(value) =>
-                    setInputs({
-                      ...inputs,
-                      ImageDomainWhitelist: value,
-                    })
-                  }
-                  style={{ fontFamily: 'JetBrains Mono, Consolas' }}
-                  autosize={{ minRows: 6, maxRows: 12 }}
-                />
-              </Col>
-            </Row>
-            <Row>
-              <Button size='default' onClick={onSubmit}>
-                {t('保存图片设置')}
               </Button>
             </Row>
           </Form.Section>

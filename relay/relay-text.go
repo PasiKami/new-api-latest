@@ -85,7 +85,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 			return service.OpenAIErrorWrapperLocal(err, "invalid_text_request", http.StatusBadRequest)
 		}
 		// 将消息中的图片链接转为base64
-		if common.ConvertImageUrlsToBase64 {
+		if setting.ImageBase64Enabled {
 			for i := range textRequest.Messages {
 				service.ConvertImageUrlsToBase64(&textRequest.Messages[i], relayInfo.UserId)
 			}
@@ -133,8 +133,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		promptTokens = value.(int)
 		relayInfo.PromptTokens = promptTokens
 	} else {
-		// promptTokens, err = getPromptTokens(textRequest, relayInfo)
-		promptTokens = 1000
+		promptTokens, err = getPromptTokens(textRequest, relayInfo)
 		// count messages token error 计算promptTokens错误
 		if err != nil {
 			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)

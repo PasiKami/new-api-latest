@@ -73,6 +73,19 @@ func SensitiveWordContains(text string) (bool, []string) {
 	return false, nil
 }
 
+func ImageDomainWhitelistCheck(url string) bool {
+	if len(setting.ImageDomainWhitelist) == 0 {
+		return false
+	}
+	url = strings.ToLower(url)
+	for _, domain := range setting.ImageDomainWhitelist {
+		if strings.Contains(url, domain) {
+			return true
+		}
+	}
+	return false
+}
+
 // SensitiveWordReplace 敏感词替换，返回是否包含敏感词和替换后的文本
 func SensitiveWordReplace(text string, returnImmediately bool) (bool, []string, string) {
 	if len(setting.SensitiveWords) == 0 {

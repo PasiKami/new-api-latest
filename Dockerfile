@@ -1,11 +1,11 @@
-FROM oven/bun:latest as builder
+FROM node:18 as builder
 
 WORKDIR /build
 COPY web/package.json .
-RUN bun install
+RUN npm install
 COPY ./web .
 COPY ./VERSION .
-RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat VERSION) bun run build
+RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat VERSION) npm run build
 
 FROM golang AS builder2
 

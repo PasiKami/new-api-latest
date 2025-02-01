@@ -20,6 +20,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -253,7 +254,25 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
 		modifiedBody, err := sjson.SetBytes(responseBody, "model", "gpt-4o-2024-08-06")
 		if err != nil {
-			return service.OpenAIErrorWrapper(err, "modify_response_body_failed", http.StatusInternalServerError), nil
+			return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		}
+		responseBody = modifiedBody
+	}
+
+	// 检查并删除 content_filter_results
+	if gjson.GetBytes(responseBody, "choices.0.content_filter_results").Exists() {
+		modifiedBody, err := sjson.DeleteBytes(responseBody, "choices.0.content_filter_results")
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		}
+		responseBody = modifiedBody
+	}
+
+	// 检查并删除 prompt_filter_results
+	if gjson.GetBytes(responseBody, "prompt_filter_results").Exists() {
+		modifiedBody, err := sjson.DeleteBytes(responseBody, "prompt_filter_results")
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
 		}
 		responseBody = modifiedBody
 	}

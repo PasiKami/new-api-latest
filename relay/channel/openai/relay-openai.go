@@ -13,6 +13,7 @@ import (
 	relaycommon "one-api/relay/common"
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -283,44 +284,6 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	}
 	// Reset response body
 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// // **新增的逻辑开始**
-	// if strings.Contains(model, "o1") {
-	// 	common.SysLog("model name contains 'o1', delete content_filter_results")
-	// 	// 如果不存在错误，或者错误类型不是 "content_filter"，则删除指定字段
-	// 	// 将响应体解析为通用的 map
-	// 	var responseMap map[string]interface{}
-	// 	err = json.Unmarshal(responseBody, &responseMap)
-	// 	if err != nil {
-	// 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_to_map_failed", http.StatusInternalServerError), nil
-	// 	}
-
-	// 	// 删除 choices 中的 content_filter_results
-	// 	if choices, ok := responseMap["choices"].([]interface{}); ok {
-	// 		for _, choice := range choices {
-	// 			if choiceMap, ok := choice.(map[string]interface{}); ok {
-	// 				delete(choiceMap, "content_filter_results")
-	// 			}
-	// 		}
-	// 	}
-
-	// 	// 删除顶层的 prompt_filter_results
-	// 	delete(responseMap, "prompt_filter_results")
-
-	// 	// 将修改后的响应重新序列化为 JSON
-	// 	responseBody, err = json.Marshal(responseMap)
-	// 	if err != nil {
-	// 		return service.OpenAIErrorWrapper(err, "marshal_modified_response_body_failed", http.StatusInternalServerError), nil
-	// 	}
-
-	// 	// 重置 resp.Body，并更新 Content-Length 头
-	// 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// 	resp.ContentLength = int64(len(responseBody))
-	// 	resp.Header.Set("Content-Length", strconv.Itoa(len(responseBody)))
-
-	// } else {
-	// 	// 如果模型名称不包含 "o1"，重置 resp.Body
-	// 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// }
 	if simpleResponse.Error.Type != "" {
 		return &dto.OpenAIErrorWithStatusCode{
 			Error:      simpleResponse.Error,
@@ -331,16 +294,13 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 	// And then we will have to send an error response, but in this case, the header has already been set.
 	// So the httpClient will be confused by the response.
 	// For example, Postman will report error, and we cannot check the response at all.
-	necessaryHeaders := map[string]string{
-		"content-type":   "Content-Type", // 使用标准的 HTTP header 格式
-		"content-length": "Content-Length",
+	// 设置必要的 HTTP 响应头：更新 Content-Length 为修改后的字节长度
+	if contentTypes, exists := resp.Header["Content-Type"]; exists && len(contentTypes) > 0 {
+		c.Writer.Header().Set("Content-Type", contentTypes[0])
 	}
+	c.Writer.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
 
-	for k, v := range resp.Header {
-		if canonicalHeader, exists := necessaryHeaders[strings.ToLower(k)]; exists {
-			c.Writer.Header().Set(canonicalHeader, v[0])
-		}
-	}
+	// 写入状态码和响应体内容
 	c.Writer.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(c.Writer, resp.Body)
 	if err != nil {

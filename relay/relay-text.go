@@ -287,9 +287,11 @@ func preConsumeQuota(c *gin.Context, preConsumedQuota int, relayInfo *relaycommo
 		return 0, 0, service.OpenAIErrorWrapperLocal(err, "get_user_quota_failed", http.StatusInternalServerError)
 	}
 	if userQuota <= 0 {
+		common.LogInfo(c, fmt.Sprintf("user %d quota is not enough", relayInfo.UserId))
 		return 0, 0, service.OpenAIErrorWrapperLocal(errors.New("user quota is not enough"), "insufficient_user_quota", http.StatusForbidden)
 	}
 	if userQuota-preConsumedQuota < 0 {
+		common.LogInfo(c, fmt.Sprintf("user %d quota %d is not enough, need quota %d", relayInfo.UserId, userQuota, preConsumedQuota))
 		return 0, 0, service.OpenAIErrorWrapperLocal(fmt.Errorf("chat pre-consumed quota failed, user quota: %d, need quota: %d", userQuota, preConsumedQuota), "insufficient_user_quota", http.StatusBadRequest)
 	}
 	if userQuota > 100*preConsumedQuota {

@@ -11,7 +11,7 @@ import SettingsMagnification from '../pages/Setting/Operation/SettingsMagnificat
 import ModelSettingsVisualEditor from '../pages/Setting/Operation/ModelSettingsVisualEditor.js';
 import GroupRatioSettings from '../pages/Setting/Operation/GroupRatioSettings.js';
 import ModelRatioSettings from '../pages/Setting/Operation/ModelRatioSettings.js';
-
+import SettingsImage from '../pages/Setting/Operation/SettingsImage.js';
 
 import { API, showError, showSuccess } from '../helpers';
 import SettingsChats from '../pages/Setting/Operation/SettingsChats.js';
@@ -58,6 +58,8 @@ const OperationSetting = () => {
     DefaultCollapseSidebar: false, // 默认折叠侧边栏
     RetryTimes: 0,
     Chats: "[]",
+    ImageBase64Enabled: true,
+    ImageDomainWhitelist: '',
   });
 
   let [loading, setLoading] = useState(false);
@@ -142,6 +144,10 @@ const OperationSetting = () => {
         {/* 聊天设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsChats options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 图片设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsImage options={inputs} refresh={onRefresh} />
         </Card>
         {/* 分组倍率设置 */}
         <Card style={{ marginTop: '10px' }}>

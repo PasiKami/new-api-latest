@@ -2,13 +2,13 @@ package setting
 
 import "strings"
 
-var CheckSensitiveEnabled = true
-var CheckSensitiveOnPromptEnabled = true
+var CheckSensitiveEnabled = false
+var CheckSensitiveOnPromptEnabled = false
 
 //var CheckSensitiveOnCompletionEnabled = true
 
 // StopOnSensitiveEnabled 如果检测到敏感词，是否立刻停止生成，否则替换敏感词
-var StopOnSensitiveEnabled = true
+var StopOnSensitiveEnabled = false
 
 // StreamCacheQueueLength 流模式缓存队列长度，0表示无缓存
 var StreamCacheQueueLength = 0

@@ -69,6 +69,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *relaycommon.RelayInfo) error {
+	common.SysLog(fmt.Sprintf("ChannelType: %d", info.ChannelType))
 	channel.SetupApiRequestHeader(info, c, header)
 	if info.ChannelType == common.ChannelTypeAzure {
 		header.Set("api-key", info.ApiKey)

@@ -233,6 +233,9 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	usage, openaiErr := adaptor.DoResponse(c, httpResp, relayInfo)
 	if openaiErr != nil {
 		// reset status code 重置状态码
+		if openaiErr.StatusCode == 400 {
+			common.LogInfo(c, string(jsonData))
+		}
 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
 		return openaiErr
 	}

@@ -210,6 +210,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	if err != nil {
 		return service.OpenAIErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
 	}
+	common.LogInfo(c, string(jsonData))
 	requestBody = bytes.NewBuffer(jsonData)
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")

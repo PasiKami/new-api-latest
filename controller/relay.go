@@ -250,6 +250,8 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 func processChannelError(c *gin.Context, channelId int, channelType int, channelName string, autoBan bool, originalModel string, err *dto.OpenAIErrorWithStatusCode) {
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
+	requestBody, _ := common.GetRequestBody(c)
+	common.LogInfo(c, fmt.Sprintf("error Request: %s", requestBody))
 	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d, model: %s): %s", channelId, err.StatusCode, originalModel, err.Error.Message))
 	if service.ShouldDisableChannel(channelType, err) && autoBan {
 		service.DisableChannel(channelId, channelName, err.Error.Message)

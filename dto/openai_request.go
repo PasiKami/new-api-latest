@@ -87,7 +87,7 @@ func (r GeneralOpenAIRequest) ParseInput() []string {
 
 type Message struct {
 	Role       string          `json:"role"`
-	Content    json.RawMessage `json:"content,omitempty"`
+	Content    json.RawMessage `json:"content"`
 	Name       *string         `json:"name,omitempty"`
 	ToolCalls  json.RawMessage `json:"tool_calls,omitempty"`
 	ToolCallId string          `json:"tool_call_id,omitempty"`
@@ -156,13 +156,6 @@ func (m *Message) IsStringContent() bool {
 func (m *Message) ParseContent() []MediaContent {
 	var contentList []MediaContent
 	var stringContent string
-	if m.Content == nil {
-		contentList = append(contentList, MediaContent{
-			Type: ContentTypeText,
-			Text: "",
-		})
-		return contentList
-	}
 	if err := json.Unmarshal(m.Content, &stringContent); err == nil {
 		contentList = append(contentList, MediaContent{
 			Type: ContentTypeText,
@@ -179,16 +172,12 @@ func (m *Message) ParseContent() []MediaContent {
 			}
 			switch contentMap["type"] {
 			case ContentTypeText:
-				subStrText := ""
-				if textVal, exists := contentMap["text"]; exists {
-					if strVal, ok := textVal.(string); ok {
-						subStrText = strVal
-					}
+				if subStr, ok := contentMap["text"].(string); ok {
+					contentList = append(contentList, MediaContent{
+						Type: ContentTypeText,
+						Text: subStr,
+					})
 				}
-				contentList = append(contentList, MediaContent{
-					Type: ContentTypeText,
-					Text: subStrText,
-				})
 			case ContentTypeImageURL:
 				if subObj, ok := contentMap["image_url"].(map[string]any); ok {
 					detail, ok := subObj["detail"]

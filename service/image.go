@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/image/webp"
 	"image"
 	"io"
 	"net/http"
@@ -14,6 +13,8 @@ import (
 	"one-api/dto"
 	"one-api/setting"
 	"strings"
+
+	"golang.org/x/image/webp"
 )
 
 func DecodeBase64ImageData(base64String string) (image.Config, string, string, error) {
@@ -196,6 +197,9 @@ func ImageDomainWhitelistCheck(url string) bool {
 }
 
 func ConvertImageUrlsToBase64(m *dto.Message, userId int) {
+	if m.IsStringContent() {
+		return
+	}
 	contentList := m.ParseContent()
 	for i, cItem := range contentList {
 		if cItem.Type == dto.ContentTypeImageURL {

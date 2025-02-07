@@ -95,7 +95,7 @@ type Message struct {
 
 type MediaContent struct {
 	Type       string `json:"type"`
-	Text       string `json:"text,omitempty"`
+	Text       string `json:"text"`
 	ImageUrl   any    `json:"image_url,omitempty"`
 	InputAudio any    `json:"input_audio,omitempty"`
 }

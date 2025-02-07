@@ -23,7 +23,14 @@ type ModelRequest struct {
 }
 
 func Distribute() func(c *gin.Context) {
+
 	return func(c *gin.Context) {
+		rawData, err := common.GetRequestBody(c)
+		if err != nil {
+			abortWithOpenAiMessage(c, http.StatusBadRequest, "无效的请求, "+err.Error())
+			return
+		}
+		common.SysLog(string(rawData))
 		allowIpsMap := c.GetStringMap("allow_ips")
 		if len(allowIpsMap) != 0 {
 			clientIp := c.ClientIP()

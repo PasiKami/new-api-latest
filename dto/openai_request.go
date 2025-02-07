@@ -87,7 +87,7 @@ func (r GeneralOpenAIRequest) ParseInput() []string {
 
 type Message struct {
 	Role       string          `json:"role"`
-	Content    json.RawMessage `json:"content,omitempty"`
+	Content    json.RawMessage `json:"content"`
 	Name       *string         `json:"name,omitempty"`
 	ToolCalls  json.RawMessage `json:"tool_calls,omitempty"`
 	ToolCallId string          `json:"tool_call_id,omitempty"`

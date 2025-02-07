@@ -95,7 +95,7 @@ type Message struct {
 
 type MediaContent struct {
 	Type       string `json:"type"`
-	Text       string `json:"text"`
+	Text       string `json:"text,omitempty"`
 	ImageUrl   any    `json:"image_url,omitempty"`
 	InputAudio any    `json:"input_audio,omitempty"`
 }
@@ -156,6 +156,13 @@ func (m *Message) IsStringContent() bool {
 func (m *Message) ParseContent() []MediaContent {
 	var contentList []MediaContent
 	var stringContent string
+	if m.Content == nil {
+		contentList = append(contentList, MediaContent{
+			Type: ContentTypeText,
+			Text: "",
+		})
+		return contentList
+	}
 	if err := json.Unmarshal(m.Content, &stringContent); err == nil {
 		contentList = append(contentList, MediaContent{
 			Type: ContentTypeText,

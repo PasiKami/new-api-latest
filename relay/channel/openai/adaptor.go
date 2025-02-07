@@ -119,6 +119,9 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxCompletionTokens = request.MaxTokens
 			request.MaxTokens = 0
 		}
+		if request.MaxCompletionTokens > 32000 {
+			request.MaxCompletionTokens = 0
+		}
 	}
 	if strings.HasPrefix(request.Model, "gpt") {
 		if request.MaxCompletionTokens != 0 && request.MaxTokens == 0 {

@@ -179,12 +179,16 @@ func (m *Message) ParseContent() []MediaContent {
 			}
 			switch contentMap["type"] {
 			case ContentTypeText:
-				if subStr, ok := contentMap["text"].(string); ok {
-					contentList = append(contentList, MediaContent{
-						Type: ContentTypeText,
-						Text: subStr,
-					})
+				subStrText := ""
+				if textVal, exists := contentMap["text"]; exists {
+					if strVal, ok := textVal.(string); ok {
+						subStrText = strVal
+					}
 				}
+				contentList = append(contentList, MediaContent{
+					Type: ContentTypeText,
+					Text: subStrText,
+				})
 			case ContentTypeImageURL:
 				if subObj, ok := contentMap["image_url"].(map[string]any); ok {
 					detail, ok := subObj["detail"]

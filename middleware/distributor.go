@@ -31,6 +31,7 @@ func Distribute() func(c *gin.Context) {
 			return
 		}
 		common.SysLog(string(rawData))
+		common.SysLog(fmt.Sprintf("%v", c.Request.Header))
 		allowIpsMap := c.GetStringMap("allow_ips")
 		if len(allowIpsMap) != 0 {
 			clientIp := c.ClientIP()

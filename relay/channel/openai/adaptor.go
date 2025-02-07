@@ -156,6 +156,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.Messages[0].Role = "developer"
 		}
 	}
+	common.SysLog(fmt.Sprintf("request: %v", request))
 
 	return request, nil
 }

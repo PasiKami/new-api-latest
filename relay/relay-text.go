@@ -85,7 +85,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 			return service.OpenAIErrorWrapperLocal(err, "invalid_text_request", http.StatusBadRequest)
 		}
 		// 将消息中的图片链接转为base64
-		if setting.ImageBase64Enabled {
+		if common.ConvertImageUrlsToBase64 {
 			for i := range textRequest.Messages {
 				service.ConvertImageUrlsToBase64(&textRequest.Messages[i], relayInfo.UserId)
 			}

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"one-api/common"
 	"one-api/dto"
-	"one-api/setting"
 	"strings"
 
 	"golang.org/x/image/webp"
@@ -181,19 +180,6 @@ func getImageConfig(reader io.Reader) (image.Config, string, error) {
 		return image.Config{}, "", err
 	}
 	return config, format, nil
-}
-
-func ImageDomainWhitelistCheck(url string) bool {
-	if len(setting.ImageDomainWhitelist) == 0 {
-		return false
-	}
-	url = strings.ToLower(url)
-	for _, domain := range setting.ImageDomainWhitelist {
-		if strings.Contains(url, domain) {
-			return true
-		}
-	}
-	return false
 }
 
 func ConvertImageUrlsToBase64(m *dto.Message, userId int) {

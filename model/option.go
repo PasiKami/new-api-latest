@@ -105,8 +105,6 @@ func InitOptionMap() {
 	common.OptionMap["MjActionCheckSuccessEnabled"] = strconv.FormatBool(setting.MjActionCheckSuccessEnabled)
 	common.OptionMap["CheckSensitiveEnabled"] = strconv.FormatBool(setting.CheckSensitiveEnabled)
 	common.OptionMap["CheckSensitiveOnPromptEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnPromptEnabled)
-	common.OptionMap["ImageBase64Enabled"] = strconv.FormatBool(setting.ImageBase64Enabled)
-	common.OptionMap["ImageDomainWhitelist"] = setting.ImageDomainWhitelistToString()
 	//common.OptionMap["CheckSensitiveOnCompletionEnabled"] = strconv.FormatBool(constant.CheckSensitiveOnCompletionEnabled)
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
@@ -230,8 +228,6 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
 			common.SMTPSSLEnabled = boolValue
-		case "ImageBase64Enabled":
-			setting.ImageBase64Enabled = boolValue
 		}
 	}
 	switch key {
@@ -338,8 +334,6 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.SensitiveWordsFromString(value)
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
-	case "ImageDomainWhitelist":
-		setting.ImageDomainWhitelistFromString(value)
 	}
 	return err
 }

@@ -197,22 +197,17 @@ func ImageDomainWhitelistCheck(url string) bool {
 }
 
 func ConvertImageUrlsToBase64(m *dto.Message, userId int) {
-	if m.IsStringContent() {
-		return
-	}
 	contentList := m.ParseContent()
 	for i, cItem := range contentList {
 		if cItem.Type == dto.ContentTypeImageURL {
 			if urlValue, ok := cItem.ImageUrl.(dto.MessageImageUrl); ok {
-				if !strings.HasPrefix(urlValue.Url, "data:") &&
+				if !strings.HasPrefix(urlValue.Url, "data:") && !strings.Contains(urlValue.Url, "aliyuncs.com") && !strings.Contains(urlValue.Url, "windows.net") &&
 					(strings.HasPrefix(urlValue.Url, "http://") || strings.HasPrefix(urlValue.Url, "https://")) {
-					if !ImageDomainWhitelistCheck(urlValue.Url) {
-						common.SysLog(fmt.Sprintf("convert image url to base64: %s from user: %d", urlValue.Url, userId))
-						mimeType, base64Data, err := GetImageFromUrl(urlValue.Url)
-						if err == nil && base64Data != "" {
-							urlValue.Url = fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
-							contentList[i].ImageUrl = urlValue
-						}
+					common.SysLog(fmt.Sprintf("convert image url to base64: %s from user: %d", urlValue.Url, userId))
+					mimeType, base64Data, err := GetImageFromUrl(urlValue.Url)
+					if err == nil && base64Data != "" {
+						urlValue.Url = fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
+						contentList[i].ImageUrl = urlValue
 					}
 				}
 			}

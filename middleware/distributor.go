@@ -30,8 +30,8 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, "无效的请求, "+err.Error())
 			return
 		}
-		common.SysLog(string(rawData))
-		common.SysLog(fmt.Sprintf("%v", c.Request.Header))
+		common.SysLog(fmt.Sprintf("Request Body: %s\n", rawData))
+		common.SysLog(fmt.Sprintf("Reauest Header: %v", c.Request.Header))
 		allowIpsMap := c.GetStringMap("allow_ips")
 		if len(allowIpsMap) != 0 {
 			clientIp := c.ClientIP()

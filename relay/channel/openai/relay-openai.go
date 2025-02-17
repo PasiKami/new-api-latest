@@ -92,7 +92,7 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 				continue
 			}
 			// 如果 choices 数组为空则跳过
-			if gjson.Get(data[6:], "choices").Array() == nil {
+			if len(gjson.Get(data[6:], "choices").Array()) == 0 {
 				continue
 			}
 			mu.Lock()

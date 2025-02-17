@@ -99,6 +99,14 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 					if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
 						data = modifiedData
 					}
+					// 删除 content_filter_results
+					if modifiedData, err := sjson.Delete(data, "choices.0.content_filter_results"); err == nil {
+						data = modifiedData
+					}
+					// 删除 prompt_filter_results
+					if modifiedData, err := sjson.Delete(data, "prompt_filter_results"); err == nil {
+						data = modifiedData
+					}
 				}
 				if lastStreamData != "" {
 					err := sendStreamData(c, lastStreamData, forceFormat)

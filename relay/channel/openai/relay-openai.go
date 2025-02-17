@@ -91,6 +91,10 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			if data[:6] != "data: " && data[:6] != "[DONE]" {
 				continue
 			}
+			// 如果 choices 数组为空则跳过
+			if gjson.Get(data[6:], "choices").Array() == nil {
+				continue
+			}
 			mu.Lock()
 			data = data[6:]
 			if !strings.HasPrefix(data, "[DONE]") {

@@ -60,6 +60,7 @@ func Relay(c *gin.Context) {
 		if value, exists := c.Get("originalModel"); exists {
 			originalModel = value.(string)
 			c.Set("original_model", originalModel)
+			common.LogInfo(c, fmt.Sprintf("using original model: %s", originalModel))
 		}
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {

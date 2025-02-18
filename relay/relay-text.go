@@ -92,7 +92,11 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		}
 		c.Set("textRequest", textRequest)
 	}
-	c.Set("originalModel", textRequest.Model)
+	if value, exists := c.Get("originalModel"); exists {
+		textRequest.Model = value.(string)
+	} else {
+		c.Set("originalModel", textRequest.Model)
+	}
 
 	// map model name
 	//isModelMapped := false

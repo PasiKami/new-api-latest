@@ -57,6 +57,10 @@ func Relay(c *gin.Context) {
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
 	for i := 0; i <= common.RetryTimes; i++ {
+		if value, exists := c.Get("originalModel"); exists {
+			originalModel = value.(string)
+			c.Set("original_model", originalModel)
+		}
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())

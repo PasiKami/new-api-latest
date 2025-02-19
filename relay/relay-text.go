@@ -76,6 +76,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	var err error
 	if val, exists := c.Get("textRequest"); exists {
 		textRequest = val.(*dto.GeneralOpenAIRequest)
+		textRequest.Model = c.GetString("original_model")
 		relayInfo.IsStream = textRequest.Stream
 	} else {
 		// get & validate textRequest 获取并验证文本请求
@@ -92,11 +93,8 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		}
 		c.Set("textRequest", textRequest)
 	}
-	if value, exists := c.Get("originalModel"); exists {
-		textRequest.Model = value.(string)
-	} else {
-		c.Set("originalModel", textRequest.Model)
-	}
+
+	c.Set("originalModel", textRequest.Model)
 
 	// map model name
 	//isModelMapped := false

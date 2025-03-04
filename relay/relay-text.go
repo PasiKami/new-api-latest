@@ -218,7 +218,6 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	var httpResp *http.Response
 	resp, err := adaptor.DoRequest(c, relayInfo, requestBody)
 	if err != nil {
-		common.LogError(c, fmt.Sprintf("do_request_failed: %s", err.Error()))
 		return service.OpenAIErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 
@@ -228,6 +227,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		if httpResp.StatusCode != http.StatusOK {
 			openaiErr = service.RelayErrorHandler(httpResp)
 			// reset status code 重置状态码
+			common.SysLog(fmt.Sprintf("重置状态码1: %d", httpResp.StatusCode))
 			service.ResetStatusCode(openaiErr, statusCodeMappingStr)
 			return openaiErr
 		}
@@ -236,6 +236,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	usage, openaiErr := adaptor.DoResponse(c, httpResp, relayInfo)
 	if openaiErr != nil {
 		// reset status code 重置状态码
+		common.SysLog(fmt.Sprintf("重置状态码2: %d", httpResp.StatusCode))
 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
 		return openaiErr
 	}

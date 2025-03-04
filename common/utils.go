@@ -200,6 +200,9 @@ func Max(a int, b int) int {
 }
 
 func MessageWithRequestId(message string, id string) string {
+	if strings.Contains(message, "request id:") {
+		return message
+	}
 	return fmt.Sprintf("%s (request id: %s)", message, id)
 }
 

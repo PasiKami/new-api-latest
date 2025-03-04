@@ -86,24 +86,28 @@ func RelayErrorHandler(resp *http.Response) (errWithStatusCode *dto.OpenAIErrorW
 
 func ResetStatusCode(openaiErr *dto.OpenAIErrorWithStatusCode, statusCodeMappingStr string) {
 	if statusCodeMappingStr == "" || statusCodeMappingStr == "{}" {
+		common.SysLog("重定向状态码映射为空，不进行重定向")
 		return
 	}
 	statusCodeMapping := make(map[string]string)
 	err := json.Unmarshal([]byte(statusCodeMappingStr), &statusCodeMapping)
 	if err != nil {
+		common.SysLog(fmt.Sprintf("重定向状态码映射解析失败: %s", err.Error()))
 		return
 	}
 	if openaiErr.StatusCode == http.StatusOK {
+		common.SysLog("状态码为200，不进行重定向")
 		return
 	}
 	codeStr := strconv.Itoa(openaiErr.StatusCode)
 	if _, ok := statusCodeMapping[codeStr]; ok {
+		common.SysLog(fmt.Sprintf("重定向状态码映射: %s -> %s", codeStr, statusCodeMapping[codeStr]))
 		intCode, _ := strconv.Atoi(statusCodeMapping[codeStr])
 		openaiErr.StatusCode = intCode
 		openaiErr.Error.Type = "new_api_error"
-		openaiErr.Error.Code = nil
-		common.SysLog(fmt.Sprintf("reset status code from %s to %d", codeStr, intCode))
 	}
+	common.SysLog(fmt.Sprintf("重定向状态码: %d", openaiErr.StatusCode))
+	common.SysLog(fmt.Sprintf("重定向错误信息: %s", openaiErr.Error.Message))
 }
 
 func TaskErrorWrapperLocal(err error, code string, statusCode int) *dto.TaskError {

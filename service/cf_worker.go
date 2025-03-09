@@ -34,7 +34,6 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 		"X-Openai-Originator":         "",
 		"X-Openai-Originator-Env":     "",
 		"X-Openai-Traffic-Source":     "",
-		"Accept-Encoding":             "gzip",
 	}
 
 	if setting.EnableWorker() {

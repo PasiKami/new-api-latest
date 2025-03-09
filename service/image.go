@@ -66,39 +66,36 @@ func GetImageFromUrl(url string) (mimeType string, data string, err error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	defer resp.Body.Close()
 
-	// 从响应头获取 MIME 类型
-	mimeType = resp.Header.Get("Content-Type")
-
-	// 如果无效或不是图片，改用部分数据检测
-	if mimeType == "" || !strings.HasPrefix(mimeType, "image/") {
-		buf := make([]byte, 512)
-		n, err := io.ReadFull(resp.Body, buf)
-		if err != nil && err != io.ErrUnexpectedEOF {
-			return "", "", err
-		}
-		detected := http.DetectContentType(buf[:n])
-		if !strings.HasPrefix(detected, "image/") {
-			return "", "", fmt.Errorf("invalid content type: %s, required image/*", detected)
-		}
-		mimeType = detected
-		body := io.MultiReader(bytes.NewReader(buf[:n]), resp.Body)
-		allData, err := io.ReadAll(body)
-		if err != nil {
-			return "", "", err
-		}
-		data = base64.StdEncoding.EncodeToString(allData)
-		return mimeType, data, nil
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("fail to get image from url: %s", resp.Status)
 	}
 
-	// 如果头部类型有效，直接读取全部内容
-	allData, err := io.ReadAll(resp.Body)
+	// 通过读取部分数据检测图片的MIME类型
+	sniff := make([]byte, 512)
+	n, err := io.ReadFull(resp.Body, sniff)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", "", err
+	}
+	mimeTypeDetected := http.DetectContentType(sniff[:n])
+	if !strings.HasPrefix(mimeTypeDetected, "image/") {
+		if !strings.HasPrefix(resp.Header.Get("Content-Type"), "image/") {
+			return "", "", fmt.Errorf("invalid content type: %s, required image/*", mimeTypeDetected)
+		}
+	}
+
+	// 将已读数据写回buffer，读剩余数据
+	buffer := bytes.NewBuffer(sniff[:n])
+	_, err = buffer.ReadFrom(resp.Body)
 	if err != nil {
 		return "", "", err
 	}
-	data = base64.StdEncoding.EncodeToString(allData)
-	return mimeType, data, nil
+
+	mimeType = mimeTypeDetected
+	data = base64.StdEncoding.EncodeToString(buffer.Bytes())
+	return
 }
 
 func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
@@ -114,33 +111,21 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
 		return image.Config{}, "", err
 	}
 
-	// 首先检查响应头的 Content-Type
-	if contentType := response.Header.Get("Content-Type"); contentType != "" {
-		if !strings.HasPrefix(contentType, "image/") {
-			common.SysLog(fmt.Sprintf("invalid content type from header: %s", contentType))
-		} else {
-			// Content-Type 验证通过,继续处理
-			goto ProcessImage
-		}
+	sniffData := make([]byte, 512)
+
+	n, readErr := io.ReadFull(response.Body, sniffData)
+	if readErr != nil && readErr != io.ErrUnexpectedEOF {
+		return image.Config{}, "", readErr
 	}
 
-	// 如果响应头判断失败,读取部分数据判断MIME类型
-	{
-		buf := make([]byte, 512)
-		n, err := io.ReadFull(response.Body, buf)
-		if err != nil && err != io.ErrUnexpectedEOF {
-			return image.Config{}, "", err
-		}
-		mimeType := http.DetectContentType(buf[:n])
-		if !strings.HasPrefix(mimeType, "image/") {
+	readData := sniffData[:n]
+	mimeType := http.DetectContentType(readData)
+	if !strings.HasPrefix(mimeType, "image/") {
+		if !strings.HasPrefix(response.Header.Get("Content-Type"), "image/") {
 			return image.Config{}, "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
 		}
-		// 复原数据流
-		response.Body = io.NopCloser(io.MultiReader(bytes.NewReader(buf[:n]), response.Body))
 	}
 
-ProcessImage:
-	var readData []byte
 	for _, limit := range []int64{1024 * 8, 1024 * 24, 1024 * 64} {
 		common.SysLog(fmt.Sprintf("try to decode image config with limit: %d", limit))
 
@@ -151,7 +136,6 @@ ProcessImage:
 
 		// 使用io.MultiReader组合已经读取的数据和response.Body
 		limitReader := io.MultiReader(bytes.NewReader(readData), response.Body)
-
 		var config image.Config
 		var format string
 		config, format, err = getImageConfig(limitReader)

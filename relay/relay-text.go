@@ -86,11 +86,11 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 			return service.OpenAIErrorWrapperLocal(err, "invalid_text_request", http.StatusBadRequest)
 		}
 		// 将消息中的图片链接转为base64
-		if common.ConvertImageUrlsToBase64 {
-			for i := range textRequest.Messages {
-				service.ConvertImageUrlsToBase64(&textRequest.Messages[i], relayInfo.UserId)
-			}
-		}
+		// if common.ConvertImageUrlsToBase64 {
+		// 	for i := range textRequest.Messages {
+		// 		service.ConvertImageUrlsToBase64(&textRequest.Messages[i], relayInfo.UserId)
+		// 	}
+		// }
 		c.Set("textRequest", textRequest)
 	}
 
@@ -131,17 +131,20 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 
 	// 获取 promptTokens，如果上下文中已经存在，则直接使用
 	var promptTokens int
-	if value, exists := c.Get("prompt_tokens"); exists {
-		promptTokens = value.(int)
-		relayInfo.PromptTokens = promptTokens
-	} else {
-		promptTokens, err = getPromptTokens(textRequest, relayInfo)
-		// count messages token error 计算promptTokens错误
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
-		}
-		c.Set("prompt_tokens", promptTokens)
-	}
+	promptTokens = 300
+	relayInfo.PromptTokens = promptTokens
+	c.Set("prompt_tokens", promptTokens)
+	// if value, exists := c.Get("prompt_tokens"); exists {
+	// 	promptTokens = value.(int)
+	// 	relayInfo.PromptTokens = promptTokens
+	// } else {
+	// 	promptTokens, err = getPromptTokens(textRequest, relayInfo)
+	// 	// count messages token error 计算promptTokens错误
+	// 	if err != nil {
+	// 		return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
+	// 	}
+	// 	c.Set("prompt_tokens", promptTokens)
+	// }
 
 	if !getModelPriceSuccess {
 		preConsumedTokens := common.PreConsumedQuota
@@ -156,15 +159,9 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	}
 
 	// pre-consume quota 预消耗配额
-	preConsumedQuota, userQuota, openaiErr := preConsumeQuota(c, preConsumedQuota, relayInfo)
-	if openaiErr != nil {
-		return openaiErr
-	}
-	defer func() {
-		if openaiErr != nil {
-			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
-		}
-	}()
+	// preConsumedQuota, userQuota, openaiErr := preConsumeQuota(c, preConsumedQuota, relayInfo)
+	preConsumedQuota = 100
+	userQuota := 10000000000
 	includeUsage := false
 	// 判断用户是否需要返回使用情况
 	if textRequest.StreamOptions != nil && textRequest.StreamOptions.IncludeUsage {

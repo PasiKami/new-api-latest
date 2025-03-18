@@ -114,12 +114,12 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 	if info.ChannelType != common.ChannelTypeOpenAI && info.ChannelType != common.ChannelTypeAzure {
 		request.StreamOptions = nil
 	}
-	if strings.HasPrefix(request.Model, "o1") {
+	if strings.HasPrefix(request.Model, "o") {
 		if request.MaxCompletionTokens == 0 && request.MaxTokens != 0 {
 			request.MaxCompletionTokens = request.MaxTokens
 			request.MaxTokens = 0
 		}
-		if request.MaxCompletionTokens > 32000 {
+		if request.MaxCompletionTokens > 1000 {
 			request.MaxCompletionTokens = 0
 		}
 	}
@@ -127,6 +127,9 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 		if request.MaxCompletionTokens != 0 && request.MaxTokens == 0 {
 			request.MaxTokens = request.MaxCompletionTokens
 			request.MaxCompletionTokens = 0
+		}
+		if request.MaxTokens > 1000 {
+			request.MaxTokens = 0
 		}
 	}
 	if common.ImageProxyPrefix != "None" {

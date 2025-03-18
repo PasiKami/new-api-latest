@@ -128,7 +128,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = request.MaxCompletionTokens
 			request.MaxCompletionTokens = 0
 		}
-		if request.MaxTokens > 1000 {
+		if request.MaxTokens > 300 {
 			request.MaxTokens = 0
 		}
 	}

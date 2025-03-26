@@ -8,7 +8,7 @@ type TextResponseWithError struct {
 	Data    []OpenAIEmbeddingResponseItem `json:"data"`
 	Model   string                        `json:"model"`
 	Usage   `json:"usage"`
-	Error   OpenAIError `json:"error"`
+	Error   OpenAIError `json:"error,omitempty"`
 }
 
 type SimpleResponse struct {

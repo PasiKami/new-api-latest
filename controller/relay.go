@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"one-api/common"
+	rawconstant "one-api/constant"
 	"one-api/dto"
 	"one-api/middleware"
 	"one-api/model"
@@ -16,6 +17,7 @@ import (
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -84,7 +86,7 @@ func Relay(c *gin.Context) {
 
 	if openaiErr != nil {
 		// 检查错误代码是否为 "content_filter"
-		if openaiErr.Error.Code == "content_filter" || openaiErr.StatusCode == http.StatusForbidden {
+		if openaiErr.Error.Code == "content_filter" {
 			// 修改错误信息和相关字段
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 			openaiErr.Error.Type = "new_api_error"
@@ -250,7 +252,12 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 func processChannelError(c *gin.Context, channelId int, channelType int, channelName string, autoBan bool, originalModel string, err *dto.OpenAIErrorWithStatusCode) {
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
-	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d, model: %s): %s", channelId, err.StatusCode, originalModel, err.Error.Message))
+	startTime := c.GetTime(rawconstant.ContextKeyRequestStartTime)
+	processingTime := time.Since(startTime).Milliseconds()
+
+	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d, model: %s, sinceusetime: %dms): %s",
+		channelId, err.StatusCode, originalModel, processingTime, err.Error.Message))
+
 	if service.ShouldDisableChannel(channelType, err) && autoBan {
 		service.DisableChannel(channelId, channelName, err.Error.Message)
 	}

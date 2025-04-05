@@ -253,9 +253,8 @@ func processChannelError(c *gin.Context, channelId int, channelType int, channel
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
 	startTime := c.GetTime(rawconstant.ContextKeyRequestStartTime)
-	processingTime := time.Since(startTime).Milliseconds()
-
-	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d, model: %s, sinceusetime: %dms): %s",
+	processingTime := time.Now().Unix() - startTime.Unix()
+	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d, model: %s, sinceusetime: %ds): %s",
 		channelId, err.StatusCode, originalModel, processingTime, err.Error.Message))
 
 	if service.ShouldDisableChannel(channelType, err) && autoBan {

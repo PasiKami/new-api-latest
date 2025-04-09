@@ -114,6 +114,7 @@ var BatchUpdateEnabled = false
 var BatchUpdateInterval = GetEnvOrDefault("BATCH_UPDATE_INTERVAL", 5)
 
 var RelayTimeout = GetEnvOrDefault("RELAY_TIMEOUT", 0) // unit is second
+var RelayTimeoutV = GetEnvOrDefault("RELAY_TIMEOUT_V", 0)
 var StreamRelayTimeout = GetEnvOrDefault("STREAM_RELAY_TIMEOUT", 0)
 
 var GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_NONE")

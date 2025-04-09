@@ -99,7 +99,13 @@ func doRequest(c *gin.Context, req *http.Request) (*http.Response, error) {
 	if isStream {
 		resp, err = service.GetStreamHttpClient().Do(req)
 	} else {
-		resp, err = service.GetHttpClient().Do(req)
+		prompt_tokens := c.GetInt("prompt_tokens")
+		model_name := c.GetString("originalModel")
+		if prompt_tokens < 4000 && model_name == "gpt-4o-2024-05-13" {
+			resp, err = service.GetVHttpClient().Do(req)
+		} else {
+			resp, err = service.GetHttpClient().Do(req)
+		}
 	}
 
 	if err != nil {

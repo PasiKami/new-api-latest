@@ -135,11 +135,13 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 		promptTokens = value.(int)
 		relayInfo.PromptTokens = promptTokens
 	} else {
-		promptTokens, err = getPromptTokens(textRequest, relayInfo)
+		// promptTokens, err = getPromptTokens(textRequest, relayInfo)
+		promptTokens = 1000 // 默认值
+		relayInfo.PromptTokens = promptTokens
 		// count messages token error 计算promptTokens错误
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
-		}
+		// if err != nil {
+		// 	return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
+		// }
 		c.Set("prompt_tokens", promptTokens)
 	}
 

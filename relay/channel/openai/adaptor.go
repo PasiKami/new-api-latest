@@ -128,7 +128,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = request.MaxCompletionTokens
 			request.MaxCompletionTokens = 0
 		}
-		if request.MaxTokens > 300 {
+		if request.MaxTokens > 300 && request.Model != "gpt-4-1106-preview" {
 			request.MaxTokens = 0
 		}
 	}

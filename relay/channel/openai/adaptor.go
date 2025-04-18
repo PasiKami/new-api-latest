@@ -128,7 +128,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = request.MaxCompletionTokens
 			request.MaxCompletionTokens = 0
 		}
-		if request.MaxTokens > 300 && request.Model != "gpt-4-1106-preview" {
+		if request.MaxTokens > 500 && request.Model != "gpt-4-1106-preview" {
 			request.MaxTokens = 0
 		}
 	}
@@ -156,7 +156,7 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 		}
 	}
 
-	if request.Model == "o1" || request.Model == "o1-2024-12-17" {
+	if strings.HasPrefix(request.Model, "o") && !strings.HasPrefix(request.Model, "o1-mini") {
 		//修改第一个Message的内容，将system改为developer
 		if len(request.Messages) > 0 && request.Messages[0].Role == "system" {
 			request.Messages[0].Role = "developer"

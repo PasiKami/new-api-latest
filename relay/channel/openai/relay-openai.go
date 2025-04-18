@@ -91,10 +91,6 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			if data[:6] != "data: " && data[:6] != "[DONE]" {
 				continue
 			}
-			// 如果 choices 数组为空则跳过
-			if len(gjson.Get(data[6:], "choices").Array()) == 0 {
-				continue
-			}
 			mu.Lock()
 			data = data[6:]
 			common.SysLog("before: " + data)

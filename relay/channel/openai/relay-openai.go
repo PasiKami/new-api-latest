@@ -150,6 +150,9 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			if !info.ShouldIncludeUsage {
 				shouldSendLastResp = false
 			}
+		} else {
+			// 增加日志说明
+			common.LogInfo(c, fmt.Sprintf("最后一次usage无效: %+v", lastStreamResponse.Usage))
 		}
 		for _, choice := range lastStreamResponse.Choices {
 			if choice.FinishReason != nil {

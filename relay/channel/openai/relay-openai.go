@@ -143,6 +143,8 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 		systemFingerprint = lastStreamResponse.GetSystemFingerprint()
 		model = lastStreamResponse.Model
 		if service.ValidUsage(lastStreamResponse.Usage) {
+			// 增加日志说明
+			common.LogInfo(c, fmt.Sprintf("最后一次usage有效: %+v", lastStreamResponse.Usage))
 			containStreamUsage = true
 			usage = lastStreamResponse.Usage
 			if !info.ShouldIncludeUsage {
@@ -154,6 +156,8 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 				shouldSendLastResp = true
 			}
 		}
+	} else {
+		common.SysError(" last stream response 解析失败!: " + err.Error())
 	}
 	if shouldSendLastResp {
 		sendStreamData(c, lastStreamData, forceFormat)

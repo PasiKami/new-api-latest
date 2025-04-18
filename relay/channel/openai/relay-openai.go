@@ -97,6 +97,7 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			}
 			mu.Lock()
 			data = data[6:]
+			common.SysLog("before: " + data)
 			if !strings.HasPrefix(data, "[DONE]") {
 				if shouldModifyModel {
 					// 使用 sjson 直接修改 JSON 字符串
@@ -119,6 +120,7 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 					}
 				}
 				lastStreamData = data
+				common.SysLog("after: " + data)
 				streamItems = append(streamItems, data)
 			}
 			mu.Unlock()

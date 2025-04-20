@@ -75,8 +75,9 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	stopChan := make(chan bool)
 	defer close(stopChan)
 	var (
-		lastStreamData string
-		mu             sync.Mutex
+		lastStreamData  string
+		mu              sync.Mutex
+		contentFiltered bool = false
 	)
 	gopool.Go(func() {
 		originalModel := c.GetString("originalModel")
@@ -94,6 +95,13 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			mu.Lock()
 			data = data[6:]
 			if !strings.HasPrefix(data, "[DONE]") {
+				// 检查 finish_reason 是否为 content_filter
+				if gjson.Get(data, "choices.0.finish_reason").String() == "content_filter" {
+					contentFiltered = true
+					mu.Unlock()
+					common.SafeSendBool(stopChan, true)
+					return
+				}
 				if shouldModifyModel {
 					// 使用 sjson 直接修改 JSON 字符串
 					if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
@@ -128,6 +136,19 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 		common.LogError(c, "streaming timeout")
 	case <-stopChan:
 		// 正常结束
+	}
+
+	// 如果内容被过滤，返回429错误
+	if contentFiltered {
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "Content filter triggered",
+				Type:    "rate_limit_exceeded",
+				Param:   "",
+				Code:    "",
+			},
+			StatusCode: http.StatusTooManyRequests, // 429 状态码
+		}, nil
 	}
 
 	shouldSendLastResp := true
@@ -296,6 +317,17 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		return &dto.OpenAIErrorWithStatusCode{
 			Error:      simpleResponse.Error,
 			StatusCode: resp.StatusCode,
+		}, nil
+	}
+	if simpleResponse.Choices[0].FinishReason == "content_filter" {
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "Content filter triggered",
+				Type:    "rate_limit_exceeded",
+				Param:   "",
+				Code:    "",
+			},
+			StatusCode: http.StatusTooManyRequests, // 429 状态码
 		}, nil
 	}
 	// We shouldn't set the header before we parse the response body, because the parse part may fail.

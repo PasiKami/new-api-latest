@@ -319,7 +319,8 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 			StatusCode: resp.StatusCode,
 		}, nil
 	}
-	if simpleResponse.Choices[0].FinishReason == "content_filter" {
+
+	if len(simpleResponse.Choices) > 0 && simpleResponse.Choices[0].FinishReason == "content_filter" {
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
 				Message: "Content filter triggered",

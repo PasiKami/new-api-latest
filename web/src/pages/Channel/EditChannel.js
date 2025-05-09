@@ -186,8 +186,6 @@ const EditChannel = (props) => {
           2,
         );
       }
-      // 删除 API 地址，前端拿不到也就不会渲染
-      data.base_url = '';
       setInputs(data);
       if (data.auto_ban === 0) {
         setAutoBan(false);

@@ -8,6 +8,15 @@ type GeminiChatRequest struct {
 	SystemInstructions *GeminiChatContent         `json:"system_instruction,omitempty"`
 }
 
+type GeminiThinkingConfig struct {
+	IncludeThoughts bool `json:"includeThoughts,omitempty"`
+	ThinkingBudget  *int `json:"thinkingBudget,omitempty"`
+}
+
+func (c *GeminiThinkingConfig) SetThinkingBudget(budget int) {
+	c.ThinkingBudget = &budget
+}
+
 type GeminiInlineData struct {
 	MimeType string `json:"mimeType"`
 	Data     string `json:"data"`
@@ -71,15 +80,17 @@ type GeminiChatTool struct {
 }
 
 type GeminiChatGenerationConfig struct {
-	Temperature      float64  `json:"temperature,omitempty"`
-	TopP             float64  `json:"topP,omitempty"`
-	TopK             float64  `json:"topK,omitempty"`
-	MaxOutputTokens  uint     `json:"maxOutputTokens,omitempty"`
-	CandidateCount   int      `json:"candidateCount,omitempty"`
-	StopSequences    []string `json:"stopSequences,omitempty"`
-	ResponseMimeType any      `json:"responseMimeType,omitempty"`
-	ResponseSchema   any      `json:"responseSchema,omitempty"`
-	Seed             int64    `json:"seed,omitempty"`
+	Temperature        *float64              `json:"temperature,omitempty"`
+	TopP               float64               `json:"topP,omitempty"`
+	TopK               float64               `json:"topK,omitempty"`
+	MaxOutputTokens    uint                  `json:"maxOutputTokens,omitempty"`
+	CandidateCount     int                   `json:"candidateCount,omitempty"`
+	StopSequences      []string              `json:"stopSequences,omitempty"`
+	ResponseMimeType   string                `json:"responseMimeType,omitempty"`
+	ResponseSchema     any                   `json:"responseSchema,omitempty"`
+	Seed               int64                 `json:"seed,omitempty"`
+	ResponseModalities []string              `json:"responseModalities,omitempty"`
+	ThinkingConfig     *GeminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type GeminiChatCandidate struct {
@@ -108,4 +119,48 @@ type GeminiUsageMetadata struct {
 	PromptTokenCount     int `json:"promptTokenCount"`
 	CandidatesTokenCount int `json:"candidatesTokenCount"`
 	TotalTokenCount      int `json:"totalTokenCount"`
+	ThoughtsTokenCount   int `json:"thoughtsTokenCount"`
+}
+
+// Imagen related structs
+type GeminiImageRequest struct {
+	Instances  []GeminiImageInstance `json:"instances"`
+	Parameters GeminiImageParameters `json:"parameters"`
+}
+
+type GeminiImageInstance struct {
+	Prompt string `json:"prompt"`
+}
+
+type GeminiImageParameters struct {
+	SampleCount      int    `json:"sampleCount,omitempty"`
+	AspectRatio      string `json:"aspectRatio,omitempty"`
+	PersonGeneration string `json:"personGeneration,omitempty"`
+}
+
+type GeminiImageResponse struct {
+	Predictions []GeminiImagePrediction `json:"predictions"`
+}
+
+type GeminiImagePrediction struct {
+	MimeType           string `json:"mimeType"`
+	BytesBase64Encoded string `json:"bytesBase64Encoded"`
+	RaiFilteredReason  string `json:"raiFilteredReason,omitempty"`
+	SafetyAttributes   any    `json:"safetyAttributes,omitempty"`
+}
+
+// Embedding related structs
+type GeminiEmbeddingRequest struct {
+	Content              GeminiChatContent `json:"content"`
+	TaskType             string            `json:"taskType,omitempty"`
+	Title                string            `json:"title,omitempty"`
+	OutputDimensionality int               `json:"outputDimensionality,omitempty"`
+}
+
+type GeminiEmbeddingResponse struct {
+	Embedding ContentEmbedding `json:"embedding"`
+}
+
+type ContentEmbedding struct {
+	Values []float64 `json:"values"`
 }

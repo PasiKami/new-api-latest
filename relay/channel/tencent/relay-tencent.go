@@ -14,6 +14,7 @@ import (
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
+	"one-api/relay/helper"
 	"one-api/service"
 	"strconv"
 	"strings"
@@ -39,9 +40,7 @@ func requestOpenAI2Tencent(a *Adaptor, request dto.GeneralOpenAIRequest) *Tencen
 	if request.TopP != 0 {
 		req.TopP = &request.TopP
 	}
-	if request.Temperature != 0 {
-		req.Temperature = &request.Temperature
-	}
+	req.Temperature = request.Temperature
 	return &req
 }
 
@@ -93,7 +92,7 @@ func tencentStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIError
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 
-	service.SetEventStreamHeaders(c)
+	helper.SetEventStreamHeaders(c)
 
 	for scanner.Scan() {
 		data := scanner.Text()
@@ -114,7 +113,7 @@ func tencentStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIError
 			responseText += response.Choices[0].Delta.GetContentString()
 		}
 
-		err = service.ObjectData(c, response)
+		err = helper.ObjectData(c, response)
 		if err != nil {
 			common.SysError(err.Error())
 		}
@@ -124,7 +123,7 @@ func tencentStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIError
 		common.SysError("error reading stream: " + err.Error())
 	}
 
-	service.Done(c)
+	helper.Done(c)
 
 	err := resp.Body.Close()
 	if err != nil {

@@ -1,43 +1,110 @@
 package openai
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"mime/multipart"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
-	relayconstant "one-api/relay/constant"
+	"one-api/relay/helper"
 	"one-api/service"
+	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-func sendStreamData(c *gin.Context, data string, forceFormat bool) error {
+func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	if data == "" {
 		return nil
 	}
 
-	if forceFormat {
-		var lastStreamResponse dto.ChatCompletionsStreamResponse
-		if err := json.Unmarshal(common.StringToByteSlice(data), &lastStreamResponse); err != nil {
-			return err
-		}
-		return service.ObjectData(c, lastStreamResponse)
+	if !forceFormat && !thinkToContent {
+		return helper.StringData(c, data)
 	}
-	return service.StringData(c, data)
+
+	var lastStreamResponse dto.ChatCompletionsStreamResponse
+	if err := common.DecodeJsonStr(data, &lastStreamResponse); err != nil {
+		return err
+	}
+
+	if !thinkToContent {
+		return helper.ObjectData(c, lastStreamResponse)
+	}
+
+	hasThinkingContent := false
+	hasContent := false
+	var thinkingContent strings.Builder
+	for _, choice := range lastStreamResponse.Choices {
+		if len(choice.Delta.GetReasoningContent()) > 0 {
+			hasThinkingContent = true
+			thinkingContent.WriteString(choice.Delta.GetReasoningContent())
+		}
+		if len(choice.Delta.GetContentString()) > 0 {
+			hasContent = true
+		}
+	}
+
+	// Handle think to content conversion
+	if info.ThinkingContentInfo.IsFirstThinkingContent {
+		if hasThinkingContent {
+			response := lastStreamResponse.Copy()
+			for i := range response.Choices {
+				// send `think` tag with thinking content
+				response.Choices[i].Delta.SetContentString("<think>\n" + thinkingContent.String())
+				response.Choices[i].Delta.ReasoningContent = nil
+				response.Choices[i].Delta.Reasoning = nil
+			}
+			info.ThinkingContentInfo.IsFirstThinkingContent = false
+			info.ThinkingContentInfo.HasSentThinkingContent = true
+			return helper.ObjectData(c, response)
+		}
+	}
+
+	if lastStreamResponse.Choices == nil || len(lastStreamResponse.Choices) == 0 {
+		return helper.ObjectData(c, lastStreamResponse)
+	}
+
+	// Process each choice
+	for i, choice := range lastStreamResponse.Choices {
+		// Handle transition from thinking to content
+		// only send `</think>` tag when previous thinking content has been sent
+		if hasContent && !info.ThinkingContentInfo.SendLastThinkingContent && info.ThinkingContentInfo.HasSentThinkingContent {
+			response := lastStreamResponse.Copy()
+			for j := range response.Choices {
+				response.Choices[j].Delta.SetContentString("\n</think>\n")
+				response.Choices[j].Delta.ReasoningContent = nil
+				response.Choices[j].Delta.Reasoning = nil
+			}
+			info.ThinkingContentInfo.SendLastThinkingContent = true
+			helper.ObjectData(c, response)
+		}
+
+		// Convert reasoning content to regular content if any
+		if len(choice.Delta.GetReasoningContent()) > 0 {
+			lastStreamResponse.Choices[i].Delta.SetContentString(choice.Delta.GetReasoningContent())
+			lastStreamResponse.Choices[i].Delta.ReasoningContent = nil
+			lastStreamResponse.Choices[i].Delta.Reasoning = nil
+		} else if !hasThinkingContent && !hasContent {
+			// flush thinking content
+			lastStreamResponse.Choices[i].Delta.ReasoningContent = nil
+			lastStreamResponse.Choices[i].Delta.Reasoning = nil
+		}
+	}
+
+	return helper.ObjectData(c, lastStreamResponse)
 }
 
 func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
@@ -53,107 +120,55 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	model := info.UpstreamModelName
 
 	var responseTextBuilder strings.Builder
+	var toolCount int
 	var usage = &dto.Usage{}
 	var streamItems []string // store stream items
 	var forceFormat bool
+	var thinkToContent bool
 
-	if info.ChannelType == common.ChannelTypeCustom {
-		if forceFmt, ok := info.ChannelSetting["force_format"].(bool); ok {
-			forceFormat = forceFmt
-		}
+	if forceFmt, ok := info.ChannelSetting[constant.ForceFormat].(bool); ok {
+		forceFormat = forceFmt
 	}
 
-	toolCount := 0
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Split(bufio.ScanLines)
+	if think2Content, ok := info.ChannelSetting[constant.ChannelSettingThinkingToContent].(bool); ok {
+		thinkToContent = think2Content
+	}
 
-	service.SetEventStreamHeaders(c)
-
-	ticker := time.NewTicker(time.Duration(constant.StreamingTimeout) * time.Second)
-	defer ticker.Stop()
-
-	stopChan := make(chan bool)
-	defer close(stopChan)
 	var (
-		lastStreamData  string
-		mu              sync.Mutex
-		contentFiltered bool = false
+		lastStreamData string
 	)
-	gopool.Go(func() {
-		originalModel := c.GetString("originalModel")
-		shouldModifyModel := originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20"
-		for scanner.Scan() {
-			info.SetFirstResponseTime()
-			ticker.Reset(time.Duration(constant.StreamingTimeout) * time.Second)
-			data := scanner.Text()
-			if len(data) < 6 { // ignore blank line or wrong format
-				continue
+	originalModel := c.GetString("originalModel")
+	shouldModifyModel := originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20"
+
+	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		if shouldModifyModel {
+			// 使用 sjson 直接修改 JSON 字符串
+			if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
+				data = modifiedData
 			}
-			if data[:6] != "data: " && data[:6] != "[DONE]" {
-				continue
-			}
-			mu.Lock()
-			data = data[6:]
-			if !strings.HasPrefix(data, "[DONE]") {
-				// 检查 finish_reason 是否为 content_filter
-				if gjson.Get(data, "choices.0.finish_reason").String() == "content_filter" {
-					contentFiltered = true
-					mu.Unlock()
-					common.SafeSendBool(stopChan, true)
-					return
-				}
-				if shouldModifyModel {
-					// 使用 sjson 直接修改 JSON 字符串
-					if modifiedData, err := sjson.Set(data, "model", "gpt-4o-2024-08-06"); err == nil {
-						data = modifiedData
-					}
-				}
-				// 删除 content_filter_results
-				if modifiedData, err := sjson.Delete(data, "choices.0.content_filter_results"); err == nil {
-					data = modifiedData
-				}
-				// 删除 prompt_filter_results
-				if modifiedData, err := sjson.Delete(data, "prompt_filter_results"); err == nil {
-					data = modifiedData
-				}
-				if lastStreamData != "" {
-					err := sendStreamData(c, lastStreamData, forceFormat)
-					if err != nil {
-						common.LogError(c, "streaming error: "+err.Error())
-					}
-				}
-				lastStreamData = data
-				streamItems = append(streamItems, data)
-			}
-			mu.Unlock()
 		}
-		common.SafeSendBool(stopChan, true)
+		// 删除 content_filter_results
+		if modifiedData, err := sjson.Delete(data, "choices.0.content_filter_results"); err == nil {
+			data = modifiedData
+		}
+		// 删除 prompt_filter_results
+		if modifiedData, err := sjson.Delete(data, "prompt_filter_results"); err == nil {
+			data = modifiedData
+		}
+		if lastStreamData != "" {
+			err := handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
+			if err != nil {
+				common.SysError("error handling stream format: " + err.Error())
+			}
+		}
+		lastStreamData = data
+		streamItems = append(streamItems, data)
+		return true
 	})
-
-	select {
-	case <-ticker.C:
-		// 超时处理逻辑
-		common.LogError(c, "streaming timeout")
-	case <-stopChan:
-		// 正常结束
-	}
-
-	// 如果内容被过滤，返回429错误
-	if contentFiltered {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "Content filter triggered",
-				Type:    "rate_limit_exceeded",
-				Param:   "",
-				Code:    "",
-			},
-			StatusCode: http.StatusTooManyRequests, // 429 状态码
-		}, nil
-	}
 
 	shouldSendLastResp := true
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
-	err := json.Unmarshal(common.StringToByteSlice(lastStreamData), &lastStreamResponse)
+	err := common.DecodeJsonStr(lastStreamData, &lastStreamResponse)
 	if err == nil {
 		responseId = lastStreamResponse.Id
 		createAt = lastStreamResponse.Created
@@ -172,103 +187,35 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			}
 		}
 	}
+
 	if shouldSendLastResp {
-		sendStreamData(c, lastStreamData, forceFormat)
+		sendStreamData(c, info, lastStreamData, forceFormat, thinkToContent)
+		//err = handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
 	}
 
-	// 计算token
-	streamResp := "[" + strings.Join(streamItems, ",") + "]"
-	switch info.RelayMode {
-	case relayconstant.RelayModeChatCompletions:
-		var streamResponses []dto.ChatCompletionsStreamResponse
-		err := json.Unmarshal(common.StringToByteSlice(streamResp), &streamResponses)
-		if err != nil {
-			// 一次性解析失败，逐个解析
-			common.SysError("error unmarshalling stream response: " + err.Error())
-			for _, item := range streamItems {
-				var streamResponse dto.ChatCompletionsStreamResponse
-				err := json.Unmarshal(common.StringToByteSlice(item), &streamResponse)
-				if err == nil {
-					//if service.ValidUsage(streamResponse.Usage) {
-					//	usage = streamResponse.Usage
-					//}
-					for _, choice := range streamResponse.Choices {
-						responseTextBuilder.WriteString(choice.Delta.GetContentString())
-						if choice.Delta.ToolCalls != nil {
-							if len(choice.Delta.ToolCalls) > toolCount {
-								toolCount = len(choice.Delta.ToolCalls)
-							}
-							for _, tool := range choice.Delta.ToolCalls {
-								responseTextBuilder.WriteString(tool.Function.Name)
-								responseTextBuilder.WriteString(tool.Function.Arguments)
-							}
-						}
-					}
-				}
-			}
-		} else {
-			for _, streamResponse := range streamResponses {
-				//if service.ValidUsage(streamResponse.Usage) {
-				//	usage = streamResponse.Usage
-				//	containStreamUsage = true
-				//}
-				for _, choice := range streamResponse.Choices {
-					responseTextBuilder.WriteString(choice.Delta.GetContentString())
-					if choice.Delta.ToolCalls != nil {
-						if len(choice.Delta.ToolCalls) > toolCount {
-							toolCount = len(choice.Delta.ToolCalls)
-						}
-						for _, tool := range choice.Delta.ToolCalls {
-							responseTextBuilder.WriteString(tool.Function.Name)
-							responseTextBuilder.WriteString(tool.Function.Arguments)
-						}
-					}
-				}
-			}
-		}
-	case relayconstant.RelayModeCompletions:
-		var streamResponses []dto.CompletionsStreamResponse
-		err := json.Unmarshal(common.StringToByteSlice(streamResp), &streamResponses)
-		if err != nil {
-			// 一次性解析失败，逐个解析
-			common.SysError("error unmarshalling stream response: " + err.Error())
-			for _, item := range streamItems {
-				var streamResponse dto.CompletionsStreamResponse
-				err := json.Unmarshal(common.StringToByteSlice(item), &streamResponse)
-				if err == nil {
-					for _, choice := range streamResponse.Choices {
-						responseTextBuilder.WriteString(choice.Text)
-					}
-				}
-			}
-		} else {
-			for _, streamResponse := range streamResponses {
-				for _, choice := range streamResponse.Choices {
-					responseTextBuilder.WriteString(choice.Text)
-				}
-			}
-		}
+	// 处理token计算
+	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
+		common.SysError("error processing tokens: " + err.Error())
 	}
 
 	if !containStreamUsage {
 		usage, _ = service.ResponseText2Usage(responseTextBuilder.String(), info.UpstreamModelName, info.PromptTokens)
 		usage.CompletionTokens += toolCount * 7
+	} else {
+		if info.ChannelType == common.ChannelTypeDeepSeek {
+			if usage.PromptCacheHitTokens != 0 {
+				usage.PromptTokensDetails.CachedTokens = usage.PromptCacheHitTokens
+			}
+		}
 	}
 
-	if info.ShouldIncludeUsage && !containStreamUsage {
-		response := service.GenerateFinalUsageResponse(responseId, createAt, model, *usage)
-		response.SetSystemFingerprint(systemFingerprint)
-		service.ObjectData(c, response)
-	}
+	handleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
-	service.Done(c)
-
-	resp.Body.Close()
 	return nil, usage
 }
 
-func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model string) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	var simpleResponse dto.SimpleResponse
+func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+	var simpleResponse dto.OpenAITextResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
@@ -278,6 +225,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
 
+	model := info.UpstreamModelName
 	originalModel := c.GetString("originalModel")
 
 	// 判断条件并修改响应体
@@ -307,71 +255,71 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, promptTokens int, model 
 		responseBody = modifiedBody
 	}
 
-	err = json.Unmarshal(responseBody, &simpleResponse)
+	err = common.DecodeJson(responseBody, &simpleResponse)
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
 	}
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	if simpleResponse.Error.Type != "" {
+	if simpleResponse.Error != nil && simpleResponse.Error.Type != "" {
 		return &dto.OpenAIErrorWithStatusCode{
-			Error:      simpleResponse.Error,
+			Error:      *simpleResponse.Error,
 			StatusCode: resp.StatusCode,
 		}, nil
 	}
+	// 触发审核的空回复报错429
+	// if len(simpleResponse.Choices) > 0 && simpleResponse.Choices[0].FinishReason == "content_filter" {
+	// 	return &dto.OpenAIErrorWithStatusCode{
+	// 		Error: dto.OpenAIError{
+	// 			Message: "Content filter triggered",
+	// 			Type:    "rate_limit_exceeded",
+	// 			Param:   "",
+	// 			Code:    "",
+	// 		},
+	// 		StatusCode: http.StatusTooManyRequests, // 429 状态码
+	// 	}, nil
+	// }
 
-	if len(simpleResponse.Choices) > 0 && simpleResponse.Choices[0].FinishReason == "content_filter" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "Content filter triggered",
-				Type:    "rate_limit_exceeded",
-				Param:   "",
-				Code:    "",
-			},
-			StatusCode: http.StatusTooManyRequests, // 429 状态码
-		}, nil
+	switch info.RelayFormat {
+	case relaycommon.RelayFormatOpenAI:
+		break
+	case relaycommon.RelayFormatClaude:
+		claudeResp := service.ResponseOpenAI2Claude(&simpleResponse, info)
+		claudeRespStr, err := json.Marshal(claudeResp)
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+		}
+		responseBody = claudeRespStr
 	}
+
+	// Reset response body
+	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
 	// We shouldn't set the header before we parse the response body, because the parse part may fail.
 	// And then we will have to send an error response, but in this case, the header has already been set.
 	// So the httpClient will be confused by the response.
 	// For example, Postman will report error, and we cannot check the response at all.
+
 	// 设置必要的 HTTP 响应头：更新 Content-Length 为修改后的字节长度
 	if contentTypes, exists := resp.Header["Content-Type"]; exists && len(contentTypes) > 0 {
 		c.Writer.Header().Set("Content-Type", contentTypes[0])
 	}
 	c.Writer.Header().Set("Content-Length", strconv.Itoa(len(responseBody)))
 
-	// 写入状态码和响应体内容
 	c.Writer.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(c.Writer, resp.Body)
 	if err != nil {
-		// return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
+		//return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
 		common.SysError("error copying response body: " + err.Error())
 	}
 	resp.Body.Close()
 	if simpleResponse.Usage.TotalTokens == 0 || (simpleResponse.Usage.PromptTokens == 0 && simpleResponse.Usage.CompletionTokens == 0) {
 		completionTokens := 0
 		for _, choice := range simpleResponse.Choices {
-			ctkm, _ := service.CountTextToken(string(choice.Message.Content), model)
+			ctkm, _ := service.CountTextToken(choice.Message.StringContent()+choice.Message.ReasoningContent+choice.Message.Reasoning, info.UpstreamModelName)
 			completionTokens += ctkm
 		}
 		simpleResponse.Usage = dto.Usage{
-			PromptTokens:     promptTokens,
+			PromptTokens:     info.PromptTokens,
 			CompletionTokens: completionTokens,
-			TotalTokens:      promptTokens + completionTokens,
-		}
-		// **新增的逻辑：检查 CompletionTokens 是否为 0**
-		if completionTokens == 0 {
-			errMsg := "CompletionTokens is still zero after calculation."
-			return &dto.OpenAIErrorWithStatusCode{
-				Error: dto.OpenAIError{
-					Message: errMsg,
-					Type:    "rate_limit_exceeded",
-					Param:   "",
-					Code:    "",
-				},
-				StatusCode: http.StatusTooManyRequests, // 429 状态码
-			}, nil
+			TotalTokens:      info.PromptTokens + completionTokens,
 		}
 	}
 	return nil, &simpleResponse.Usage
@@ -412,6 +360,11 @@ func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 }
 
 func OpenaiSTTHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, responseFormat string) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+	// count tokens by audio file duration
+	audioTokens, err := countAudioTokens(c)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "count_audio_tokens_failed", http.StatusInternalServerError), nil
+	}
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
@@ -436,70 +389,52 @@ func OpenaiSTTHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	}
 	resp.Body.Close()
 
-	var text string
-	switch responseFormat {
-	case "json":
-		text, err = getTextFromJSON(responseBody)
-	case "text":
-		text, err = getTextFromText(responseBody)
-	case "srt":
-		text, err = getTextFromSRT(responseBody)
-	case "verbose_json":
-		text, err = getTextFromVerboseJSON(responseBody)
-	case "vtt":
-		text, err = getTextFromVTT(responseBody)
-	}
-
 	usage := &dto.Usage{}
-	usage.PromptTokens = info.PromptTokens
-	usage.CompletionTokens, _ = service.CountTextToken(text, info.UpstreamModelName)
+	usage.PromptTokens = audioTokens
+	usage.CompletionTokens = 0
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	return nil, usage
 }
 
-func getTextFromVTT(body []byte) (string, error) {
-	return getTextFromSRT(body)
-}
-
-func getTextFromVerboseJSON(body []byte) (string, error) {
-	var whisperResponse dto.WhisperVerboseJSONResponse
-	if err := json.Unmarshal(body, &whisperResponse); err != nil {
-		return "", fmt.Errorf("unmarshal_response_body_failed err :%w", err)
+func countAudioTokens(c *gin.Context) (int, error) {
+	body, err := common.GetRequestBody(c)
+	if err != nil {
+		return 0, errors.WithStack(err)
 	}
-	return whisperResponse.Text, nil
-}
 
-func getTextFromSRT(body []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(body)))
-	var builder strings.Builder
-	var textLine bool
-	for scanner.Scan() {
-		line := scanner.Text()
-		if textLine {
-			builder.WriteString(line)
-			textLine = false
-			continue
-		} else if strings.Contains(line, "-->") {
-			textLine = true
-			continue
-		}
+	var reqBody struct {
+		File *multipart.FileHeader `form:"file" binding:"required"`
 	}
-	if err := scanner.Err(); err != nil {
-		return "", err
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	if err = c.ShouldBind(&reqBody); err != nil {
+		return 0, errors.WithStack(err)
 	}
-	return builder.String(), nil
-}
 
-func getTextFromText(body []byte) (string, error) {
-	return strings.TrimSuffix(string(body), "\n"), nil
-}
-
-func getTextFromJSON(body []byte) (string, error) {
-	var whisperResponse dto.AudioResponse
-	if err := json.Unmarshal(body, &whisperResponse); err != nil {
-		return "", fmt.Errorf("unmarshal_response_body_failed err :%w", err)
+	reqFp, err := reqBody.File.Open()
+	if err != nil {
+		return 0, errors.WithStack(err)
 	}
-	return whisperResponse.Text, nil
+
+	tmpFp, err := os.CreateTemp("", "audio-*")
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+	defer os.Remove(tmpFp.Name())
+
+	_, err = io.Copy(tmpFp, reqFp)
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+	if err = tmpFp.Close(); err != nil {
+		return 0, errors.WithStack(err)
+	}
+
+	duration, err := common.GetAudioDuration(c.Request.Context(), tmpFp.Name())
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+
+	return int(math.Round(math.Ceil(duration) / 60.0 * 1000)), nil // 1 minute 相当于 1k tokens
 }
 
 func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.RealtimeUsage) {
@@ -567,7 +502,7 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.Op
 				localUsage.InputTokenDetails.TextTokens += textToken
 				localUsage.InputTokenDetails.AudioTokens += audioToken
 
-				err = service.WssString(c, targetConn, string(message))
+				err = helper.WssString(c, targetConn, string(message))
 				if err != nil {
 					errChan <- fmt.Errorf("error writing to target: %v", err)
 					return
@@ -673,7 +608,7 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.Op
 					localUsage.OutputTokenDetails.AudioTokens += audioToken
 				}
 
-				err = service.WssString(c, clientConn, string(message))
+				err = helper.WssString(c, clientConn, string(message))
 				if err != nil {
 					errChan <- fmt.Errorf("error writing to client: %v", err)
 					return
@@ -725,4 +660,53 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 	// clear usage
 	err := service.PreWssConsumeQuota(ctx, info, usage)
 	return err
+}
+
+func OpenaiHandlerWithUsage(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+	}
+	// Reset response body
+	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// We shouldn't set the header before we parse the response body, because the parse part may fail.
+	// And then we will have to send an error response, but in this case, the header has already been set.
+	// So the httpClient will be confused by the response.
+	// For example, Postman will report error, and we cannot check the response at all.
+	for k, v := range resp.Header {
+		c.Writer.Header().Set(k, v[0])
+	}
+	// reset content length
+	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBody)))
+	c.Writer.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+	}
+
+	var usageResp dto.SimpleResponse
+	err = json.Unmarshal(responseBody, &usageResp)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "parse_response_body_failed", http.StatusInternalServerError), nil
+	}
+	// format
+	if usageResp.InputTokens > 0 {
+		usageResp.PromptTokens += usageResp.InputTokens
+	}
+	if usageResp.OutputTokens > 0 {
+		usageResp.CompletionTokens += usageResp.OutputTokens
+	}
+	if usageResp.InputTokensDetails != nil {
+		usageResp.PromptTokensDetails.ImageTokens += usageResp.InputTokensDetails.ImageTokens
+		usageResp.PromptTokensDetails.TextTokens += usageResp.InputTokensDetails.TextTokens
+	}
+	return nil, &usageResp.Usage
 }

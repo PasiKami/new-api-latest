@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	common2 "one-api/common"
 	"one-api/relay/common"
 	"one-api/relay/constant"
 	"one-api/service"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Header) {
@@ -33,6 +33,9 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
+	if common2.DebugEnabled {
+		println("fullRequestURL:", fullRequestURL)
+	}
 	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
@@ -41,7 +44,7 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
-	resp, err := doRequest(c, req)
+	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
@@ -64,7 +67,7 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
-	resp, err := doRequest(c, req)
+	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}
@@ -92,16 +95,28 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	return targetConn, nil
 }
 
-func doRequest(c *gin.Context, req *http.Request) (*http.Response, error) {
-	isStream := c.GetBool("stream")
-	var resp *http.Response
+func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+	var client *http.Client
 	var err error
-	if isStream {
-		resp, err = service.GetStreamHttpClient().Do(req)
-	} else {
-		resp, err = service.GetHttpClient().Do(req)
-	}
+	var streamSupport bool
 
+	if streamSt, ok := info.ChannelSetting["stream_support"].(bool); ok {
+		streamSupport = streamSt
+	} else {
+		streamSupport = true
+	}
+	if !streamSupport && info.IsStream {
+		return nil, errors.New("stream not supported")
+	}
+	if proxyURL, ok := info.ChannelSetting["proxy"]; ok {
+		client, err = service.NewProxyHttpClient(proxyURL.(string))
+		if err != nil {
+			return nil, fmt.Errorf("new proxy http client failed: %w", err)
+		}
+	} else {
+		client = service.GetHttpClient()
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +145,7 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.TaskRelayInfo,
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
-	resp, err := doRequest(c, req)
+	resp, err := doRequest(c, req, info.RelayInfo)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
 	}

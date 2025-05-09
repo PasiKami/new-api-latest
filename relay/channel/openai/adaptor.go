@@ -9,15 +9,23 @@ import (
 	"mime/multipart"
 	"net/http"
 	"one-api/common"
+	constant2 "one-api/constant"
 	"one-api/dto"
 	"one-api/relay/channel"
 	"one-api/relay/channel/ai360"
 	"one-api/relay/channel/lingyiwanwu"
 	"one-api/relay/channel/minimax"
 	"one-api/relay/channel/moonshot"
+	"one-api/relay/channel/openrouter"
+	"one-api/relay/channel/xinference"
 	relaycommon "one-api/relay/common"
+	"one-api/relay/common_handler"
 	"one-api/relay/constant"
+	"one-api/service"
+	"path/filepath"
 	"strings"
+
+	"net/textproto"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,11 +35,39 @@ type Adaptor struct {
 	ResponseFormat string
 }
 
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	if !strings.Contains(request.Model, "claude") {
+		return nil, fmt.Errorf("you are using openai channel type with path /v1/messages, only claude model supported convert, but got %s", request.Model)
+	}
+	aiRequest, err := service.ClaudeToOpenAIRequest(*request, info)
+	if err != nil {
+		return nil, err
+	}
+	if info.SupportStreamOptions {
+		aiRequest.StreamOptions = &dto.StreamOptions{
+			IncludeUsage: true,
+		}
+	}
+	return a.ConvertOpenAIRequest(c, info, aiRequest)
+}
+
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
+
+	// initialize ThinkingContentInfo when thinking_to_content is enabled
+	if think2Content, ok := info.ChannelSetting[constant2.ChannelSettingThinkingToContent].(bool); ok && think2Content {
+		info.ThinkingContentInfo = relaycommon.ThinkingContentInfo{
+			IsFirstThinkingContent:  true,
+			SendLastThinkingContent: false,
+			HasSentThinkingContent:  false,
+		}
+	}
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if info.RelayFormat == relaycommon.RelayFormatClaude {
+		return fmt.Sprintf("%s/v1/chat/completions", info.BaseUrl), nil
+	}
 	if info.RelayMode == constant.RelayModeRealtime {
 		if strings.HasPrefix(info.BaseUrl, "https://") {
 			baseUrl := strings.TrimPrefix(info.BaseUrl, "https://")
@@ -45,17 +81,28 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	}
 	switch info.ChannelType {
 	case common.ChannelTypeAzure:
+		apiVersion := info.ApiVersion
+		if apiVersion == "" {
+			apiVersion = constant2.AzureDefaultAPIVersion
+		}
+
 		// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?pivots=rest-api&tabs=command-line#rest-api
 		requestURL := strings.Split(info.RequestURLPath, "?")[0]
-		requestURL = fmt.Sprintf("%s?api-version=%s", requestURL, info.ApiVersion)
+		requestURL = fmt.Sprintf("%s?api-version=%s", requestURL, apiVersion)
 		task := strings.TrimPrefix(requestURL, "/v1/")
 		model_ := info.UpstreamModelName
+		if strings.HasPrefix(model_, "deepseek") || strings.HasPrefix(model_, "MAI") {
+			requestURL = fmt.Sprintf("%s/models/chat/completions?api-version=%s#", info.BaseUrl, constant2.AzureDefaultAPIVersion)
+			// common.SysError(fmt.Sprintf("Azure model request url %s", requestURL))
+			return requestURL, nil
+		}
 		model_ = strings.Replace(model_, ".", "", -1)
 		// https://github.com/songquanpeng/one-api/issues/67
 		requestURL = fmt.Sprintf("/openai/deployments/%s/%s", model_, task)
 		if info.RelayMode == constant.RelayModeRealtime {
-			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, info.ApiVersion)
+			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, apiVersion)
 		}
+
 		return relaycommon.GetFullRequestURL(info.BaseUrl, requestURL, info.ChannelType), nil
 	case common.ChannelTypeMiniMax:
 		return minimax.GetRequestURL(info)
@@ -69,7 +116,6 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *relaycommon.RelayInfo) error {
-	// common.SysLog(fmt.Sprintf("ChannelType: %d", info.ChannelType))
 	channel.SetupApiRequestHeader(info, c, header)
 	if info.ChannelType == common.ChannelTypeAzure {
 		header.Set("api-key", info.ApiKey)
@@ -97,17 +143,14 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 	} else {
 		header.Set("Authorization", "Bearer "+info.ApiKey)
 	}
-	if info.ChannelType == common.ChannelTypeCustom {
-		header.Set("api-key", info.ApiKey)
+	if info.ChannelType == common.ChannelTypeOpenRouter {
+		header.Set("HTTP-Referer", "https://github.com/Calcium-Ion/new-api")
+		header.Set("X-Title", "New API")
 	}
-	//if info.ChannelType == common.ChannelTypeOpenRouter {
-	//	req.Header.Set("HTTP-Referer", "https://github.com/songquanpeng/one-api")
-	//	req.Header.Set("X-Title", "One API")
-	//}
 	return nil
 }
 
-func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
+func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
@@ -119,8 +162,26 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxCompletionTokens = request.MaxTokens
 			request.MaxTokens = 0
 		}
-		if request.MaxCompletionTokens > 300 {
-			request.MaxCompletionTokens = 0
+		request.Temperature = nil
+		if strings.HasSuffix(request.Model, "-high") {
+			request.ReasoningEffort = "high"
+			request.Model = strings.TrimSuffix(request.Model, "-high")
+		} else if strings.HasSuffix(request.Model, "-low") {
+			request.ReasoningEffort = "low"
+			request.Model = strings.TrimSuffix(request.Model, "-low")
+		} else if strings.HasSuffix(request.Model, "-medium") {
+			request.ReasoningEffort = "medium"
+			request.Model = strings.TrimSuffix(request.Model, "-medium")
+		}
+		info.ReasoningEffort = request.ReasoningEffort
+		info.UpstreamModelName = request.Model
+
+		// o系列模型developer适配（o1-mini除外）
+		if !strings.HasPrefix(request.Model, "o1-mini") {
+			//修改第一个Message的内容，将system改为developer
+			if len(request.Messages) > 0 && request.Messages[0].Role == "system" {
+				request.Messages[0].Role = "developer"
+			}
 		}
 	}
 	if strings.HasPrefix(request.Model, "gpt") {
@@ -128,38 +189,8 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 			request.MaxTokens = request.MaxCompletionTokens
 			request.MaxCompletionTokens = 0
 		}
-		if request.MaxTokens > 500 && request.Model != "gpt-4-1106-preview" {
+		if request.MaxTokens > 3000 {
 			request.MaxTokens = 0
-		}
-	}
-	if common.ImageProxyPrefix != "None" {
-		for i, message := range request.Messages {
-			if len(message.Content) > 0 {
-				if !message.IsStringContent() {
-					mediaMessages := message.ParseContent()
-					for j, mm := range mediaMessages {
-						if mm.Type == dto.ContentTypeImageURL {
-							if imgUrl, ok := mm.ImageUrl.(dto.MessageImageUrl); ok {
-								if strings.HasPrefix(imgUrl.Url, "http") && !strings.HasPrefix(imgUrl.Url, common.ImageProxyPrefix) {
-									imgUrl.Url = common.ImageProxyPrefix + imgUrl.Url
-								}
-								mediaMessages[j].ImageUrl = imgUrl
-							}
-						}
-					}
-					// 将修改后的内容转换回JSON并更新message
-					if jsonContent, err := json.Marshal(mediaMessages); err == nil {
-						request.Messages[i].Content = jsonContent
-					}
-				}
-			}
-		}
-	}
-
-	if strings.HasPrefix(request.Model, "o") && !strings.HasPrefix(request.Model, "o1-mini") {
-		//修改第一个Message的内容，将system改为developer
-		if len(request.Messages) > 0 && request.Messages[0].Role == "system" {
-			request.Messages[0].Role = "developer"
 		}
 	}
 
@@ -167,7 +198,11 @@ func (a *Adaptor) ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, re
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, errors.New("not implemented")
+	return request, nil
+}
+
+func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
+	return request, nil
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
@@ -220,11 +255,152 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	return request, nil
+	switch info.RelayMode {
+	case constant.RelayModeImagesEdits:
+
+		var requestBody bytes.Buffer
+		writer := multipart.NewWriter(&requestBody)
+
+		writer.WriteField("model", request.Model)
+		// 获取所有表单字段
+		formData := c.Request.PostForm
+		// 遍历表单字段并打印输出
+		for key, values := range formData {
+			if key == "model" {
+				continue
+			}
+			for _, value := range values {
+				writer.WriteField(key, value)
+			}
+		}
+
+		// Parse the multipart form to handle both single image and multiple images
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
+			return nil, errors.New("failed to parse multipart form")
+		}
+
+		if c.Request.MultipartForm != nil && c.Request.MultipartForm.File != nil {
+			// Check if "image" field exists in any form, including array notation
+			var imageFiles []*multipart.FileHeader
+			var exists bool
+
+			// First check for standard "image" field
+			if imageFiles, exists = c.Request.MultipartForm.File["image"]; !exists || len(imageFiles) == 0 {
+				// If not found, check for "image[]" field
+				if imageFiles, exists = c.Request.MultipartForm.File["image[]"]; !exists || len(imageFiles) == 0 {
+					// If still not found, iterate through all fields to find any that start with "image["
+					foundArrayImages := false
+					for fieldName, files := range c.Request.MultipartForm.File {
+						if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
+							foundArrayImages = true
+							for _, file := range files {
+								imageFiles = append(imageFiles, file)
+							}
+						}
+					}
+
+					// If no image fields found at all
+					if !foundArrayImages && (len(imageFiles) == 0) {
+						return nil, errors.New("image is required")
+					}
+				}
+			}
+
+			// Process all image files
+			for i, fileHeader := range imageFiles {
+				file, err := fileHeader.Open()
+				if err != nil {
+					return nil, fmt.Errorf("failed to open image file %d: %w", i, err)
+				}
+				defer file.Close()
+
+				// If multiple images, use image[] as the field name
+				fieldName := "image"
+				if len(imageFiles) > 1 {
+					fieldName = "image[]"
+				}
+
+				// Determine MIME type based on file extension
+				mimeType := detectImageMimeType(fileHeader.Filename)
+
+				// Create a form file with the appropriate content type
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, fieldName, fileHeader.Filename))
+				h.Set("Content-Type", mimeType)
+
+				part, err := writer.CreatePart(h)
+				if err != nil {
+					return nil, fmt.Errorf("create form part failed for image %d: %w", i, err)
+				}
+
+				if _, err := io.Copy(part, file); err != nil {
+					return nil, fmt.Errorf("copy file failed for image %d: %w", i, err)
+				}
+			}
+
+			// Handle mask file if present
+			if maskFiles, exists := c.Request.MultipartForm.File["mask"]; exists && len(maskFiles) > 0 {
+				maskFile, err := maskFiles[0].Open()
+				if err != nil {
+					return nil, errors.New("failed to open mask file")
+				}
+				defer maskFile.Close()
+
+				// Determine MIME type for mask file
+				mimeType := detectImageMimeType(maskFiles[0].Filename)
+
+				// Create a form file with the appropriate content type
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="mask"; filename="%s"`, maskFiles[0].Filename))
+				h.Set("Content-Type", mimeType)
+
+				maskPart, err := writer.CreatePart(h)
+				if err != nil {
+					return nil, errors.New("create form file failed for mask")
+				}
+
+				if _, err := io.Copy(maskPart, maskFile); err != nil {
+					return nil, errors.New("copy mask file failed")
+				}
+			}
+		} else {
+			return nil, errors.New("no multipart form data found")
+		}
+
+		// 关闭 multipart 编写器以设置分界线
+		writer.Close()
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		return bytes.NewReader(requestBody.Bytes()), nil
+
+	default:
+		return request, nil
+	}
+}
+
+// detectImageMimeType determines the MIME type based on the file extension
+func detectImageMimeType(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	default:
+		// Try to detect from extension if possible
+		if strings.HasPrefix(ext, ".jp") {
+			return "image/jpeg"
+		}
+		// Default to png as a fallback
+		return "image/png"
+	}
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if info.RelayMode == constant.RelayModeAudioTranscription || info.RelayMode == constant.RelayModeAudioTranslation {
+	if info.RelayMode == constant.RelayModeAudioTranscription ||
+		info.RelayMode == constant.RelayModeAudioTranslation ||
+		info.RelayMode == constant.RelayModeImagesEdits {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	} else if info.RelayMode == constant.RelayModeRealtime {
 		return channel.DoWssRequest(a, c, info, requestBody)
@@ -243,13 +419,15 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		fallthrough
 	case constant.RelayModeAudioTranscription:
 		err, usage = OpenaiSTTHandler(c, resp, info, a.ResponseFormat)
-	case constant.RelayModeImagesGenerations:
-		err, usage = OpenaiTTSHandler(c, resp, info)
+	case constant.RelayModeImagesGenerations, constant.RelayModeImagesEdits:
+		err, usage = OpenaiHandlerWithUsage(c, resp, info)
+	case constant.RelayModeRerank:
+		err, usage = common_handler.RerankHandler(c, info, resp)
 	default:
 		if info.IsStream {
 			err, usage = OaiStreamHandler(c, resp, info)
 		} else {
-			err, usage = OpenaiHandler(c, resp, info.PromptTokens, info.UpstreamModelName)
+			err, usage = OpenaiHandler(c, resp, info)
 		}
 	}
 	return
@@ -265,6 +443,10 @@ func (a *Adaptor) GetModelList() []string {
 		return lingyiwanwu.ModelList
 	case common.ChannelTypeMiniMax:
 		return minimax.ModelList
+	case common.ChannelTypeXinference:
+		return xinference.ModelList
+	case common.ChannelTypeOpenRouter:
+		return openrouter.ModelList
 	default:
 		return ModelList
 	}
@@ -280,6 +462,10 @@ func (a *Adaptor) GetChannelName() string {
 		return lingyiwanwu.ChannelName
 	case common.ChannelTypeMiniMax:
 		return minimax.ChannelName
+	case common.ChannelTypeXinference:
+		return xinference.ChannelName
+	case common.ChannelTypeOpenRouter:
+		return openrouter.ChannelName
 	default:
 		return ChannelName
 	}

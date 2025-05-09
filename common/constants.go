@@ -1,8 +1,8 @@
 package common
 
 import (
-	"os"
-	"strconv"
+	//"os"
+	//"strconv"
 	"sync"
 	"time"
 
@@ -15,8 +15,9 @@ var SystemName = "New API"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
-var ChatLink = ""
-var ChatLink2 = ""
+
+// var ChatLink = ""
+// var ChatLink2 = ""
 var QuotaPerUnit = 500 * 1000.0 // $0.002 / 1K tokens
 var DisplayInCurrencyEnabled = true
 var DisplayTokenStatEnabled = true
@@ -61,9 +62,13 @@ var EmailDomainWhitelist = []string{
 	"yahoo.com",
 	"foxmail.com",
 }
+var EmailLoginAuthServerList = []string{
+	"smtp.sendcloud.net",
+	"smtp.azurecomm.net",
+}
 
-var DebugEnabled = os.Getenv("DEBUG") == "true"
-var MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
+var DebugEnabled bool
+var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
 
@@ -76,7 +81,6 @@ var SMTPToken = ""
 
 var GitHubClientId = ""
 var GitHubClientSecret = ""
-
 var LinuxDOClientId = ""
 var LinuxDOClientSecret = ""
 
@@ -101,33 +105,30 @@ var PreConsumedQuota = 500
 
 var RetryTimes = 0
 
-var RootUserEmail = ""
+//var RootUserEmail = ""
 
-var IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
+var IsMasterNode bool
 
-var requestInterval, _ = strconv.Atoi(os.Getenv("POLLING_INTERVAL"))
-var RequestInterval = time.Duration(requestInterval) * time.Second
+var requestInterval int
+var RequestInterval time.Duration
 
-var SyncFrequency = GetEnvOrDefault("SYNC_FREQUENCY", 60) // unit is second
+var SyncFrequency int // unit is second
 
 var BatchUpdateEnabled = false
-var BatchUpdateInterval = GetEnvOrDefault("BATCH_UPDATE_INTERVAL", 5)
+var BatchUpdateInterval int
 
-var RelayTimeout = GetEnvOrDefault("RELAY_TIMEOUT", 0) // unit is second
-var StreamRelayTimeout = GetEnvOrDefault("STREAM_RELAY_TIMEOUT", 0)
+var RelayTimeout int // unit is second
 
-var GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_NONE")
+var MaxImageSize int // 默认为0不限制大小
+
+var RequestTimeout int // 默认为0不限制超时时间
+
+var ConvertImageUrlsToBase64 bool
+
+var GeminiSafetySetting string
 
 // https://docs.cohere.com/docs/safety-modes Type; NONE/CONTEXTUAL/STRICT
-var CohereSafetySetting = GetEnvOrDefaultString("COHERE_SAFETY_SETTING", "NONE")
-
-var ImageProxyPrefix = GetEnvOrDefaultString("IMAGE_PROXY_PREFIX", "None")
-
-var MaxImageSize = GetEnvOrDefault("MAX_IMAGE_SIZE", 0) // 默认为0不限制大小
-
-var RequestTimeout = GetEnvOrDefault("REQUEST_TIMEOUT", 0) // 默认为0不限制超时时间
-
-var ConvertImageUrlsToBase64 = GetEnvOrDefaultBool("CONVERT_IMAGE_URLS_TO_BASE64", true)
+var CohereSafetySetting string
 
 const (
 	RequestIdKey = "X-Oneapi-Request-Id"
@@ -154,13 +155,13 @@ var (
 // All duration's unit is seconds
 // Shouldn't larger then RateLimitKeyExpirationDuration
 var (
-	GlobalApiRateLimitEnable   = GetEnvOrDefaultBool("GLOBAL_API_RATE_LIMIT_ENABLE", true)
-	GlobalApiRateLimitNum      = GetEnvOrDefault("GLOBAL_API_RATE_LIMIT", 180)
-	GlobalApiRateLimitDuration = int64(GetEnvOrDefault("GLOBAL_API_RATE_LIMIT_DURATION", 180))
+	GlobalApiRateLimitEnable   bool
+	GlobalApiRateLimitNum      int
+	GlobalApiRateLimitDuration int64
 
-	GlobalWebRateLimitEnable   = GetEnvOrDefaultBool("GLOBAL_WEB_RATE_LIMIT_ENABLE", true)
-	GlobalWebRateLimitNum      = GetEnvOrDefault("GLOBAL_WEB_RATE_LIMIT", 60)
-	GlobalWebRateLimitDuration = int64(GetEnvOrDefault("GLOBAL_WEB_RATE_LIMIT_DURATION", 180))
+	GlobalWebRateLimitEnable   bool
+	GlobalWebRateLimitNum      int
+	GlobalWebRateLimitDuration int64
 
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60
@@ -240,8 +241,12 @@ const (
 	ChannelTypeVertexAi       = 41
 	ChannelTypeMistral        = 42
 	ChannelTypeDeepSeek       = 43
-
-	ChannelTypeDummy // this one is only for count, do not add any channel after this
+	ChannelTypeMokaAI         = 44
+	ChannelTypeVolcEngine     = 45
+	ChannelTypeBaiduV2        = 46
+	ChannelTypeXinference     = 47
+	ChannelTypeXai            = 48
+	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
 
@@ -283,11 +288,16 @@ var ChannelBaseURLs = []string{
 	"https://api.cohere.ai",                     //34
 	"https://api.minimax.chat",                  //35
 	"",                                          //36
-	"",                                          //37
+	"https://api.dify.ai",                       //37
 	"https://api.jina.ai",                       //38
 	"https://api.cloudflare.com",                //39
 	"https://api.siliconflow.cn",                //40
 	"",                                          //41
 	"https://api.mistral.ai",                    //42
 	"https://api.deepseek.com",                  //43
+	"https://api.moka.ai",                       //44
+	"https://ark.cn-beijing.volces.com",         //45
+	"https://qianfan.baidubce.com",              //46
+	"",                                          //47
+	"https://api.x.ai",                          //48
 }

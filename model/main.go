@@ -1,16 +1,18 @@
 package model
 
 import (
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"log"
 	"one-api/common"
+	"one-api/constant"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 var groupCol string
@@ -54,13 +56,40 @@ func createRootAccountIfNeed() error {
 	return nil
 }
 
+func CheckSetup() {
+	setup := GetSetup()
+	if setup == nil {
+		// No setup record exists, check if we have a root user
+		if RootUserExists() {
+			common.SysLog("system is not initialized, but root user exists")
+			// Create setup record
+			newSetup := Setup{
+				Version:       common.Version,
+				InitializedAt: time.Now().Unix(),
+			}
+			err := DB.Create(&newSetup).Error
+			if err != nil {
+				common.SysLog("failed to create setup record: " + err.Error())
+			}
+			constant.Setup = true
+		} else {
+			common.SysLog("system is not initialized and no root user exists")
+			constant.Setup = false
+		}
+	} else {
+		// Setup record exists, system is initialized
+		common.SysLog("system is already initialized at: " + time.Unix(setup.InitializedAt, 0).String())
+		constant.Setup = true
+	}
+}
+
 func chooseDB(envName string) (*gorm.DB, error) {
 	defer func() {
 		initCol()
 	}()
 	dsn := os.Getenv(envName)
 	if dsn != "" {
-		if strings.HasPrefix(dsn, "postgres://") {
+		if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 			// Use PostgreSQL
 			common.SysLog("using PostgreSQL as database")
 			common.UsingPostgreSQL = true
@@ -119,12 +148,9 @@ func InitDB() (err error) {
 		if !common.IsMasterNode {
 			return nil
 		}
-		//if common.UsingMySQL {
-		//	_, _ = sqlDB.Exec("DROP INDEX idx_channels_key ON channels;")             // TODO: delete this line when most users have upgraded
-		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY action VARCHAR(40);")   // TODO: delete this line when most users have upgraded
-		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY progress VARCHAR(30);") // TODO: delete this line when most users have upgraded
-		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY status VARCHAR(20);")   // TODO: delete this line when most users have upgraded
-		//}
+		if common.UsingMySQL {
+			_, _ = sqlDB.Exec("ALTER TABLE channels MODIFY model_mapping TEXT;") // TODO: delete this line when most users have upgraded
+		}
 		common.SysLog("database migration started")
 		err = migrateDB()
 		return err
@@ -216,8 +242,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	err = DB.AutoMigrate(&Setup{})
 	common.SysLog("database migrated")
-	err = createRootAccountIfNeed()
+	//err = createRootAccountIfNeed()
 	return err
 }
 

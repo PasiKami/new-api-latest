@@ -64,35 +64,33 @@ func authHelper(c *gin.Context, minRole int) {
 			return
 		}
 	}
-	if !useAccessToken {
-		// get header New-Api-User
-		apiUserIdStr := c.Request.Header.Get("New-Api-User")
-		if apiUserIdStr == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "无权进行此操作，请刷新页面或清空缓存后重试",
-			})
-			c.Abort()
-			return
-		}
-		apiUserId, err := strconv.Atoi(apiUserIdStr)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "无权进行此操作，登录信息无效，请重新登录",
-			})
-			c.Abort()
-			return
+	// get header New-Api-User
+	apiUserIdStr := c.Request.Header.Get("New-Api-User")
+	if apiUserIdStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "无权进行此操作，未提供 New-Api-User",
+		})
+		c.Abort()
+		return
+	}
+	apiUserId, err := strconv.Atoi(apiUserIdStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "无权进行此操作，New-Api-User 格式错误",
+		})
+		c.Abort()
+		return
 
-		}
-		if id != apiUserId {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "无权进行此操作，与登录用户不匹配，请重新登录",
-			})
-			c.Abort()
-			return
-		}
+	}
+	if id != apiUserId {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "无权进行此操作，New-Api-User 与登录用户不匹配",
+		})
+		c.Abort()
+		return
 	}
 	if status.(int) == common.UserStatusDisabled {
 		c.JSON(http.StatusOK, gin.H{
@@ -176,6 +174,14 @@ func TokenAuth() func(c *gin.Context) {
 			}
 			c.Request.Header.Set("Authorization", "Bearer "+key)
 		}
+		// 检查path包含/v1/messages
+		if strings.Contains(c.Request.URL.Path, "/v1/messages") {
+			// 从x-api-key中获取key
+			key := c.Request.Header.Get("x-api-key")
+			if key != "" {
+				c.Request.Header.Set("Authorization", "Bearer "+key)
+			}
+		}
 		key := c.Request.Header.Get("Authorization")
 		parts := make([]string, 0)
 		key = strings.TrimPrefix(key, "Bearer ")
@@ -201,15 +207,19 @@ func TokenAuth() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())
 			return
 		}
-		userEnabled, err := model.IsUserEnabled(token.UserId, false)
+		userCache, err := model.GetUserCache(token.UserId)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusInternalServerError, err.Error())
 			return
 		}
+		userEnabled := userCache.Status == common.UserStatusEnabled
 		if !userEnabled {
 			abortWithOpenAiMessage(c, http.StatusForbidden, "用户已被封禁")
 			return
 		}
+
+		userCache.WriteContext(c)
+
 		c.Set("id", token.UserId)
 		c.Set("token_id", token.Id)
 		c.Set("token_key", token.Key)

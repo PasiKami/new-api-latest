@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"one-api/common"
+	"one-api/constant"
 	"one-api/dto"
 	"strings"
 
@@ -26,7 +27,7 @@ func DecodeBase64ImageData(base64String string) (image.Config, string, string, e
 	decodedData, err := base64.StdEncoding.DecodeString(base64String)
 	if err != nil {
 		fmt.Println("Error: Failed to decode base64 string")
-		return image.Config{}, "", "", err
+		return image.Config{}, "", "", fmt.Errorf("failed to decode base64 string: %s", err.Error())
 	}
 
 	// 创建一个bytes.Buffer用于存储解码后的数据
@@ -64,38 +65,51 @@ func DecodeBase64FileData(base64String string) (string, string, error) {
 func GetImageFromUrl(url string) (mimeType string, data string, err error) {
 	resp, err := DoDownloadRequest(url)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to download image: %w", err)
 	}
-
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("fail to get image from url: %s", resp.Status)
+	// Check HTTP status code
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("failed to download image: HTTP %d", resp.StatusCode)
 	}
 
-	// 通过读取部分数据检测图片的MIME类型
-	sniff := make([]byte, 512)
-	n, err := io.ReadFull(resp.Body, sniff)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		return "", "", err
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/octet-stream" && !strings.HasPrefix(contentType, "image/") {
+		return "", "", fmt.Errorf("invalid content type: %s, required image/*", contentType)
 	}
-	mimeTypeDetected := http.DetectContentType(sniff[:n])
-	if !strings.HasPrefix(mimeTypeDetected, "image/") {
-		if !strings.HasPrefix(resp.Header.Get("Content-Type"), "image/") {
-			return "", "", fmt.Errorf("invalid content type: %s, required image/*", mimeTypeDetected)
-		}
+	maxImageSize := int64(constant.MaxFileDownloadMB * 1024 * 1024)
+
+	// Check Content-Length if available
+	if resp.ContentLength > maxImageSize {
+		return "", "", fmt.Errorf("image size %d exceeds maximum allowed size of %d bytes", resp.ContentLength, maxImageSize)
 	}
 
-	// 将已读数据写回buffer，读剩余数据
-	buffer := bytes.NewBuffer(sniff[:n])
-	_, err = buffer.ReadFrom(resp.Body)
+	// Use LimitReader to prevent reading oversized images
+	limitReader := io.LimitReader(resp.Body, maxImageSize)
+	buffer := &bytes.Buffer{}
+
+	written, err := io.Copy(buffer, limitReader)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to read image data: %w", err)
+	}
+	if written >= maxImageSize {
+		return "", "", fmt.Errorf("image size exceeds maximum allowed size of %d bytes", maxImageSize)
 	}
 
-	mimeType = mimeTypeDetected
 	data = base64.StdEncoding.EncodeToString(buffer.Bytes())
-	return
+	mimeType = contentType
+
+	// Handle application/octet-stream type
+	if mimeType == "application/octet-stream" {
+		_, format, _, err := DecodeBase64ImageData(data)
+		if err != nil {
+			return "", "", err
+		}
+		mimeType = "image/" + format
+	}
+
+	return mimeType, data, nil
 }
 
 func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
@@ -111,21 +125,13 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
 		return image.Config{}, "", err
 	}
 
-	sniffData := make([]byte, 512)
+	mimeType := response.Header.Get("Content-Type")
 
-	n, readErr := io.ReadFull(response.Body, sniffData)
-	if readErr != nil && readErr != io.ErrUnexpectedEOF {
-		return image.Config{}, "", readErr
+	if mimeType != "application/octet-stream" && !strings.HasPrefix(mimeType, "image/") {
+		return image.Config{}, "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
 	}
 
-	readData := sniffData[:n]
-	mimeType := http.DetectContentType(readData)
-	if !strings.HasPrefix(mimeType, "image/") {
-		if !strings.HasPrefix(response.Header.Get("Content-Type"), "image/") {
-			return image.Config{}, "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
-		}
-	}
-
+	var readData []byte
 	for _, limit := range []int64{1024 * 8, 1024 * 24, 1024 * 64} {
 		common.SysLog(fmt.Sprintf("try to decode image config with limit: %d", limit))
 
@@ -136,6 +142,7 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, error) {
 
 		// 使用io.MultiReader组合已经读取的数据和response.Body
 		limitReader := io.MultiReader(bytes.NewReader(readData), response.Body)
+
 		var config image.Config
 		var format string
 		config, format, err = getImageConfig(limitReader)
@@ -173,7 +180,7 @@ func ConvertImageUrlsToBase64(m *dto.Message, userId int) {
 	contentList := m.ParseContent()
 	for i, cItem := range contentList {
 		if cItem.Type == dto.ContentTypeImageURL {
-			if urlValue, ok := cItem.ImageUrl.(dto.MessageImageUrl); ok {
+			if urlValue, ok := cItem.ImageUrl.(*dto.MessageImageUrl); ok {
 				if !strings.HasPrefix(urlValue.Url, "data:") && !strings.Contains(urlValue.Url, "aliyuncs.com") && !strings.Contains(urlValue.Url, "windows.net") &&
 					(strings.HasPrefix(urlValue.Url, "http://") || strings.HasPrefix(urlValue.Url, "https://")) {
 					common.SysLog(fmt.Sprintf("convert image url to base64: %s from user: %d", urlValue.Url, userId))

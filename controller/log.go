@@ -182,7 +182,6 @@ func GetLogsSelfStat(c *gin.Context) {
 			"quota": quotaNum.Quota,
 			"rpm":   quotaNum.Rpm,
 			"tpm":   quotaNum.Tpm,
-			"qpm":   quotaNum.Qpm,
 			//"token": tokenNum,
 		},
 	})
@@ -198,7 +197,7 @@ func DeleteHistoryLogs(c *gin.Context) {
 		})
 		return
 	}
-	count, err := model.DeleteOldLog(targetTimestamp)
+	count, err := model.DeleteOldLog(c.Request.Context(), targetTimestamp, 100)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,

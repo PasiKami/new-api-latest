@@ -59,10 +59,24 @@
 13. 🎵 Added [Suno API](https://github.com/Suno-API/Suno-API) interface support, [Integration Guide](Suno.md)
 14. 🔄 Support for Rerank models, compatible with Cohere and Jina, can integrate with Dify, [Integration Guide](Rerank.md)
 15. ⚡ **[OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime/integration)** - Support for OpenAI's Realtime API, including Azure channels
+16. 🧠 Support for setting reasoning effort through model name suffix:
+    - Add suffix `-high` to set high reasoning effort (e.g., `o3-mini-high`)
+    - Add suffix `-medium` to set medium reasoning effort
+    - Add suffix `-low` to set low reasoning effort
+17. 🔄 Thinking to content option `thinking_to_content` in `Channel->Edit->Channel Extra Settings`, default is `false`, when `true`, the `reasoning_content` of the thinking content will be converted to `<think>` tags and concatenated to the content returned.
+18. 🔄 Model rate limit, support setting total request limit and successful request limit in `System Settings->Rate Limit Settings`
+19. 💰 Cache billing support, when enabled can charge a configurable ratio for cache hits:
+    1. Set `Prompt Cache Ratio` in `System Settings -> Operation Settings`
+    2. Set `Prompt Cache Ratio` in channel settings, range 0-1 (e.g., 0.5 means 50% charge on cache hits)
+    3. Supported channels:
+        - [x] OpenAI
+        - [x] Azure 
+        - [x] DeepSeek
+        - [ ] Claude
 
 ## Model Support
 This version additionally supports:
-1. Third-party model **gps** (gpt-4-gizmo-*)
+1. Third-party model **gpts** (gpt-4-gizmo-*)
 2. [Midjourney-Proxy(Plus)](https://github.com/novicezk/midjourney-proxy) interface, [Integration Guide](Midjourney.md)
 3. Custom channels with full API URL support
 4. [Suno API](https://github.com/Suno-API/Suno-API) interface, [Integration Guide](Suno.md)
@@ -84,15 +98,15 @@ You can add custom models gpt-4-gizmo-* in channels. These are third-party model
 - `GEMINI_VISION_MAX_IMAGE_NUM`: Gemini model maximum image number, default `16`, set to `-1` to disable
 - `MAX_FILE_DOWNLOAD_MB`: Maximum file download size in MB, default `20`
 - `CRYPTO_SECRET`: Encryption key for encrypting database content
+- `AZURE_DEFAULT_API_VERSION`: Azure channel default API version, if not specified in channel settings, use this version, default `2024-12-01-preview`
+- `NOTIFICATION_LIMIT_DURATION_MINUTE`: Duration of notification limit in minutes, default `10`
+- `NOTIFY_LIMIT_COUNT`: Maximum number of user notifications in the specified duration, default `2`
 
 ## Deployment
+
 > [!TIP]
 > Latest Docker image: `calciumion/new-api:latest`  
-> Default account: root, password: 123456  
-> Update command:
-> ```
-> docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower -cR
-> ```
+> Default account: root, password: 123456
 
 ### Multi-Server Deployment
 - Must set `SESSION_SECRET` environment variable, otherwise login state will not be consistent across multiple servers.
@@ -102,14 +116,29 @@ You can add custom models gpt-4-gizmo-* in channels. These are third-party model
 - Local database (default): SQLite (Docker deployment must mount `/data` directory)
 - Remote database: MySQL >= 5.7.8, PgSQL >= 9.6
 
+### Deployment with BT Panel
+Install BT Panel (**version 9.2.0** or above) from [BT Panel Official Website](https://www.bt.cn/new/download.html), choose the stable version script to download and install.  
+After installation, log in to BT Panel and click Docker in the menu bar. First-time access will prompt to install Docker service. Click Install Now and follow the prompts to complete installation.  
+After installation, find **New-API** in the app store, click install, configure basic options to complete installation.  
+[Pictorial Guide](BT.md)
+
 ### Docker Deployment
+
 ### Using Docker Compose (Recommended)
 ```shell
 # Clone project
 git clone https://github.com/Calcium-Ion/new-api.git
 cd new-api
 # Edit docker-compose.yml as needed
+# nano docker-compose.yml
+# vim docker-compose.yml
 # Start
+docker-compose up -d
+```
+
+#### Update Version
+```shell
+docker-compose pull
 docker-compose up -d
 ```
 
@@ -117,14 +146,31 @@ docker-compose up -d
 ```shell
 # SQLite deployment:
 docker run --name new-api -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data calciumion/new-api:latest
+
 # MySQL deployment (add -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi"), modify database connection parameters as needed
 # Example:
 docker run --name new-api -d --restart always -p 3000:3000 -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data calciumion/new-api:latest
 ```
 
+#### Update Version
+```shell
+# Pull the latest image
+docker pull calciumion/new-api:latest
+# Stop and remove the old container
+docker stop new-api
+docker rm new-api
+# Run the new container with the same parameters as before
+docker run --name new-api -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data calciumion/new-api:latest
+```
+
+Alternatively, you can use Watchtower for automatic updates (not recommended, may cause database incompatibility):
+```shell
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower -cR
+```
+
 ## Channel Retry
 Channel retry is implemented, configurable in `Settings->Operation Settings->General Settings`. **Cache recommended**.  
-First retry uses same priority, second retry uses next priority, and so on.
+If retry is enabled, the system will automatically use the next priority channel for the same request after a failed request.
 
 ### Cache Configuration
 1. `REDIS_CONN_STRING`: Use Redis as cache

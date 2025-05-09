@@ -229,6 +229,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	originalModel := c.GetString("originalModel")
 
 	// 判断条件并修改响应体
+	common.SysLog("originalModel: " + originalModel + ", model: " + model)
 	if originalModel == "gpt-4o-2024-08-06" && model == "gpt-4o-2024-11-20" {
 		modifiedBody, err := sjson.SetBytes(responseBody, "model", "gpt-4o-2024-08-06")
 		if err != nil {

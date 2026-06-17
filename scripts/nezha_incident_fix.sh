@@ -14,6 +14,8 @@ REMOVE_ALL_NEZHA="${REMOVE_ALL_NEZHA:-0}"
 REMOVE_UNAPPROVED_NEZHA="${REMOVE_UNAPPROVED_NEZHA:-0}"
 APPLY_FIREWALL="${APPLY_FIREWALL:-1}"
 QUARANTINE_DIR="${QUARANTINE_DIR:-/root/incident-quarantine-$(date -u +%Y%m%dT%H%M%SZ)}"
+CURRENT_SSH_PORT="${CURRENT_SSH_PORT:-}"
+PROTECTED_INBOUND_PORTS="${PROTECTED_INBOUND_PORTS:-22}"
 
 IOC_IPS="207.58.173.192 24.144.123.109 103.106.228.23"
 
@@ -66,6 +68,30 @@ yaml_set() {
   else
     printf '%s: %s\n' "$key" "$value" >> "$file"
   fi
+}
+
+detect_current_ssh_port() {
+  if [ -z "$CURRENT_SSH_PORT" ] && [ -n "${SSH_CONNECTION:-}" ]; then
+    CURRENT_SSH_PORT="$(printf '%s\n' "$SSH_CONNECTION" | awk '{print $4}')"
+  fi
+  case "$CURRENT_SSH_PORT" in
+    ''|*[!0-9]*) CURRENT_SSH_PORT="" ;;
+  esac
+  if [ -n "$CURRENT_SSH_PORT" ]; then
+    case " $PROTECTED_INBOUND_PORTS " in
+      *" $CURRENT_SSH_PORT "*) ;;
+      *) PROTECTED_INBOUND_PORTS="$PROTECTED_INBOUND_PORTS $CURRENT_SSH_PORT" ;;
+    esac
+  fi
+}
+
+is_protected_inbound_port() {
+  local port="$1"
+  local protected
+  for protected in $PROTECTED_INBOUND_PORTS; do
+    [ "$protected" = "$port" ] && return 0
+  done
+  return 1
 }
 
 get_nezha_server() {
@@ -202,9 +228,27 @@ install_firewall_blocks() {
   }
 
   log "installing host and Docker egress blocks"
+  detect_current_ssh_port
+  log "protected inbound TCP ports: $PROTECTED_INBOUND_PORTS"
+  mkdir -p /etc/default
+  {
+    safe_ports="$(printf '%s' "$PROTECTED_INBOUND_PORTS" | tr -cd '0-9 ')"
+    printf "PROTECTED_INBOUND_PORTS='%s'\n" "$safe_ports"
+  } > /etc/default/incident-egress-block
   cat > /usr/local/sbin/incident-egress-block.sh <<'EOF'
 #!/bin/sh
 set -eu
+
+PROTECTED_INBOUND_PORTS="${PROTECTED_INBOUND_PORTS:-22}"
+[ -f /etc/default/incident-egress-block ] && . /etc/default/incident-egress-block
+
+is_protected_inbound_port() {
+  port="$1"
+  for protected in $PROTECTED_INBOUND_PORTS; do
+    [ "$protected" = "$port" ] && return 0
+  done
+  return 1
+}
 
 add4() {
   chain="$1"
@@ -219,8 +263,8 @@ add6() {
 }
 
 if command -v iptables >/dev/null 2>&1; then
-  add4 INPUT -p tcp --dport 23 -j DROP
-  add4 INPUT -p tcp --dport 2323 -j DROP
+  is_protected_inbound_port 23 || add4 INPUT -p tcp --dport 23 -j DROP
+  is_protected_inbound_port 2323 || add4 INPUT -p tcp --dport 2323 -j DROP
   add4 OUTPUT -p tcp --dport 23 -j REJECT
   add4 OUTPUT -p tcp --dport 2323 -j REJECT
   add4 OUTPUT -d 207.58.173.192/32 -j REJECT
@@ -236,8 +280,8 @@ if command -v iptables >/dev/null 2>&1; then
 fi
 
 if command -v ip6tables >/dev/null 2>&1; then
-  add6 INPUT -p tcp --dport 23 -j DROP || true
-  add6 INPUT -p tcp --dport 2323 -j DROP || true
+  is_protected_inbound_port 23 || add6 INPUT -p tcp --dport 23 -j DROP || true
+  is_protected_inbound_port 2323 || add6 INPUT -p tcp --dport 2323 -j DROP || true
   add6 OUTPUT -p tcp --dport 23 -j REJECT || true
   add6 OUTPUT -p tcp --dport 2323 -j REJECT || true
   if ip6tables -S DOCKER-USER >/dev/null 2>&1; then
@@ -268,8 +312,8 @@ EOF
   systemctl start incident-egress-block.service >/dev/null 2>&1 || true
 
   if command -v ufw >/dev/null 2>&1; then
-    ufw deny in 23/tcp >/dev/null 2>&1 || true
-    ufw deny in 2323/tcp >/dev/null 2>&1 || true
+    is_protected_inbound_port 23 || ufw deny in 23/tcp >/dev/null 2>&1 || true
+    is_protected_inbound_port 2323 || ufw deny in 2323/tcp >/dev/null 2>&1 || true
     ufw deny out 23/tcp >/dev/null 2>&1 || true
     ufw deny out 2323/tcp >/dev/null 2>&1 || true
     for ip in $IOC_IPS; do

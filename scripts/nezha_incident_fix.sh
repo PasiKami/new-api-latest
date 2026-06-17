@@ -94,6 +94,20 @@ is_protected_inbound_port() {
   return 1
 }
 
+remove_protected_inbound_blocks() {
+  local port
+  for port in $PROTECTED_INBOUND_PORTS; do
+    case "$port" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    while iptables -D INPUT -p tcp --dport "$port" -j DROP 2>/dev/null; do :; done
+    while ip6tables -D INPUT -p tcp --dport "$port" -j DROP 2>/dev/null; do :; done
+    if command -v ufw >/dev/null 2>&1; then
+      yes | ufw delete deny in "${port}/tcp" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
 get_nezha_server() {
   local file="$1"
   awk -F': ' '/^server:/ {print $2; exit}' "$file" 2>/dev/null || true
@@ -230,6 +244,7 @@ install_firewall_blocks() {
   log "installing host and Docker egress blocks"
   detect_current_ssh_port
   log "protected inbound TCP ports: $PROTECTED_INBOUND_PORTS"
+  remove_protected_inbound_blocks
   mkdir -p /etc/default
   {
     safe_ports="$(printf '%s' "$PROTECTED_INBOUND_PORTS" | tr -cd '0-9 ')"
@@ -250,6 +265,16 @@ is_protected_inbound_port() {
   return 1
 }
 
+remove_protected_inbound_blocks() {
+  for port in $PROTECTED_INBOUND_PORTS; do
+    case "$port" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    while iptables -D INPUT -p tcp --dport "$port" -j DROP 2>/dev/null; do :; done
+    while ip6tables -D INPUT -p tcp --dport "$port" -j DROP 2>/dev/null; do :; done
+  done
+}
+
 add4() {
   chain="$1"
   shift
@@ -263,6 +288,7 @@ add6() {
 }
 
 if command -v iptables >/dev/null 2>&1; then
+  remove_protected_inbound_blocks
   is_protected_inbound_port 23 || add4 INPUT -p tcp --dport 23 -j DROP
   is_protected_inbound_port 2323 || add4 INPUT -p tcp --dport 2323 -j DROP
   add4 OUTPUT -p tcp --dport 23 -j REJECT
